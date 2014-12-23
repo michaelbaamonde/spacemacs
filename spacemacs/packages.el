@@ -626,7 +626,7 @@ determine the state to enable when escaping from the insert state.")
 
   (defun spacemacs/evil-state-lazy-loading ()
     (require 'evil-iedit-state)
-    (setq evil-iedit-state-cursor `(,(spacemacs/state-color 'iedit) box))   
+    (setq evil-iedit-state-cursor `(,(spacemacs/state-color 'iedit) box))
     (setq evil-iedit-insert-state-cursor `((spacemacs/state-color 'iedit-insert) (bar . 2)))
     ;; activate leader in iedit and iedit-insert states
     (define-key evil-iedit-state-map
@@ -741,13 +741,13 @@ determine the state to enable when escaping from the insert state.")
       ;; for evil-org have been moved to `spacemacs/init-org'
       (spacemacs|diminish evil-org-mode " Ⓔ"))))
 
-(defun spacemacs/init-evil-search-highlight-persist ()
-  (use-package evil-search-highlight-persist
-    :init
-    (progn
-      (global-evil-search-highlight-persist)
-      (evil-leader/set-key "sc" 'evil-search-highlight-persist-remove-all)
-      (evil-ex-define-cmd "noh" 'evil-search-highlight-persist-remove-all))))
+;; (defun spacemacs/init-evil-search-highlight-persist ()
+;;   (use-package evil-search-highlight-persist
+;;     :init
+;;     (progn
+;;       (global-evil-search-highlight-persist)
+;;       (evil-leader/set-key "sc" 'evil-search-highlight-persist-remove-all)
+;;       (evil-ex-define-cmd "noh" 'evil-search-highlight-persist-remove-all))))
 
 (defun spacemacs/init-evil-surround ()
   (use-package evil-surround
@@ -1114,6 +1114,9 @@ determine the state to enable when escaping from the insert state.")
       (define-key helm-map (kbd "C-k") 'helm-previous-line)
       (define-key helm-map (kbd "C-h") 'helm-next-source)
       (define-key helm-map (kbd "C-l") 'helm-previous-source)
+      ;; switch <TAB> and <C-z>
+      (define-key helm-map (kbd "<tab>") 'helm-execute-persistent-action) ; rebind tab to do persistent action
+      (define-key helm-map (kbd "C-z")  'helm-select-action) ; list actions using C-z
       ;; experimental: toggle evil-leader with "jk" with helm specific commands
       (when dotspacemacs-feature-toggle-leader-on-jk
         (evil-leader/set-key-for-mode 'helm-mode
@@ -1401,7 +1404,7 @@ determine the state to enable when escaping from the insert state.")
     :init
     (progn
       (setq org-log-done t)
-      (add-hook 'org-mode-hook 'org-indent-mode)
+;;      (add-hook 'org-mode-hook 'org-indent-mode)
       (evil-leader/set-key-for-mode 'org-mode
         "mc" 'org-capture
         "md" 'org-deadline

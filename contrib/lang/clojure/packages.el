@@ -29,8 +29,7 @@ which require an initialization must be listed explicitly in the list.")
     :defer t
     :init
     (progn
-      (add-to-hook 'clojure-mode-hook '(subword-mode
-                                        paredit-mode
+      (add-to-hook 'clojure-mode-hook '(paredit-mode
                                         rainbow-delimiters-mode)))
     :config
     (progn
@@ -48,8 +47,7 @@ which require an initialization must be listed explicitly in the list.")
       (add-to-hook 'cider-mode-hook '(cider-turn-on-eldoc-mode
                                       ac-flyspell-workaround
                                       ac-cider-setup))
-      (add-to-hook 'cider-repl-mode-hook '(subword-mode
-                                           rainbow-delimiters-mode
+      (add-to-hook 'cider-repl-mode-hook '(rainbow-delimiters-mode
                                            ac-cider-setup
                                            auto-complete-mode)))
     :config
