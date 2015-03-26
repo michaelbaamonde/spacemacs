@@ -1,33 +1,67 @@
+;;; packages.el --- Erlang and Elixir Layer packages File for Spacemacs
+;;
+;; Copyright (c) 2012-2014 Sylvain Benner
+;; Copyright (c) 2014-2015 Sylvain Benner & Contributors
+;;
+;; Author: Sylvain Benner <sylvain.benner@gmail.com>
+;; URL: https://github.com/syl20bnr/spacemacs
+;;
+;; This file is not part of GNU Emacs.
+;;
+;;; License: GPLv3
+
 (defvar erlang-elixir-packages
   '(
-    auto-complete
-    auto-highlight-symbol
+    alchemist
     edts
     elixir-mode
     erlang
     flycheck
-    git-gutter-fringe
-    evil-iedit-state
-    rainbow-delimiters
     ruby-end
-    smartparens
-    yasnippet
     )
   "List of all packages to install and/or initialize. Built-in packages
 which require an initialization must be listed explicitly in the list.")
 
-(defvar erlang-elixir-excluded-packages '()
-  "List of packages to exclude.")
+(defun erlang-elixir/init-alchemist ()
+  (add-hook 'elixir-mode-hook 'alchemist-mode)
+  (setq alchemist-project-compile-when-needed t)
+  (evil-leader/set-key-for-mode 'elixir-mode
+    "mcb" 'alchemist-compile-this-buffer
 
-(defvar spacemacs-erlang-elixir-use-edts nil
-  "If non-nil then `EDTS' is loaded with `erlang-mode'. This variable
-must be defined in `dotspacemacs/init' function to take effect.")
+    "mel" 'alchemist-eval-current-line
+    "meL" 'alchemist-eval-print-current-line
+    "mer" 'alchemist-eval-region
+    "meR" 'alchemist-eval-print-region
+    "meb" 'alchemist-eval-buffer
+    "meB" 'alchemist-eval-print-buffer
 
-(defun erlang-elixir/init-auto-complete ()
-  (add-hook 'erlang-mode-hook 'auto-complete-mode))
+    "mgt" 'alchemist-project-open-tests-for-current-file
 
-(defun erlang-elixir/init-auto-highlight-symbol ()
-  (add-hook 'erlang-mode-hook 'auto-highlight-symbol-mode))
+    "mh:" 'alchemist-help
+    "mhH" 'alchemist-help-history
+    "mhh" 'alchemist-help-search-at-point
+    "mhr" 'alchemist-help-search-marked-region
+
+    "mm:" 'alchemist-mix
+    "mmc" 'alchemist-mix-compile
+    "mmx" 'alchemist-mix-run
+    "mmh" 'alchemist-mix-help
+    "mmi" 'alchemist-iex-project-run
+
+    "msi" 'alchemist-iex-run
+    "msl" 'alchemist-iex-send-current-line
+    "msL" 'alchemist-iex-send-current-line-and-go
+    "msr" 'alchemist-iex-send-region
+    "msR" 'alchemist-iex-send-region-and-go
+
+    "mta" 'alchemist-mix-test
+    "mtb" 'alchemist-mix-test-this-buffer
+    "mtt" 'alchemist-mix-test-at-point
+
+    "mxb" 'alchemist-execute-this-buffer
+    "mxf" 'alchemist-execute-file
+    "mx:" 'alchemist-execute
+    ))
 
 (defun erlang-elixir/init-edts ()
 
@@ -46,13 +80,14 @@ must be defined in `dotspacemacs/init' function to take effect.")
     :defer t
     :config
     (progn
-      (require 'ruby-end)
+      (defun auto-activate-ruby-end-mode-for-elixir-mode ()
+        (set (make-variable-buffer-local 'ruby-end-expand-keywords-before-re)
+             "\\(?:^\\|\\s-+\\)\\(?:do\\)")
+        (set (make-variable-buffer-local 'ruby-end-check-statement-modifiers)
+             nil)
+        (ruby-end-mode +1))
       (add-to-list 'elixir-mode-hook
-                   (defun auto-activate-ruby-end-mode-for-elixir-mode ()
-                     (set (make-variable-buffer-local 'ruby-end-expand-keywords-before-re)
-                          "\\(?:^\\|\\s-+\\)\\(?:do\\)")
-                     (set (make-variable-buffer-local 'ruby-end-check-statement-modifiers) nil)
-                     (ruby-end-mode +1))))))
+                   'auto-activate-ruby-end-mode-for-elixir-mode))))
 
 (defun erlang-elixir/init-erlang ()
   (use-package erlang
@@ -60,6 +95,8 @@ must be defined in `dotspacemacs/init' function to take effect.")
            ("\\.hrl?$" . erlang-mode)
            ("\\.spec?$" . erlang-mode))
     :defer t
+    :init
+    (add-hook 'erlang-mode-hook (lambda () (run-hooks 'prog-mode-hook)))
     :config
     (progn
       (setq erlang-root-dir "/usr/lib/erlang/erts-5.10.3")
@@ -79,40 +116,26 @@ must be defined in `dotspacemacs/init' function to take effect.")
       ;; (setq edts-log-level 'debug)
       ;; (setq edts-face-inhibit-mode-line-updates t)
       (evil-leader/set-key-for-mode 'erlang-mode
-        "md" 'edts-find-doc
-        "me" 'edts-code-next-issue
-        "mG" 'edts-find-global-function
-        "mg" 'edts-find-source-under-point
-        "mh" 'edts-find-header-source
-        "ml" 'edts-find-local-function
-        "mm" 'edts-find-macro-source
-        "mr" 'edts-find-record-source))))
+        "me"  'edts-code-next-issue
+        "mGg" 'edts-find-global-function
+        "mGh" 'edts-find-header-source
+        "mGl"  'edts-find-local-function
+        "mGr" 'edts-find-record-source
+        "mgg"  'edts-find-source-under-point
+        "mhd" 'edts-find-doc
+        "mm"  'edts-find-macro-source))))
 
 (defun erlang-elixir/init-flycheck ()
   (add-hook 'elixir-mode-hook 'flycheck-mode)
   (unless spacemacs-erlang-elixir-use-edts
     (add-hook 'erlang-mode-hook 'flycheck-mode)))
 
-(defun erlang-elixir/init-git-gutter-fringe ()
-  (add-hook 'erlang-mode-hook 'git-gutter-mode))
-
-(defun erlang-elixir/init-evil-iedit-state ()
-  (add-hook 'erlang-mode-hook 'spacemacs/evil-state-lazy-loading))
-
-
-(defun erlang-elixir/init-rainbow-delimiters ()
-  (add-hook 'erlang-mode-hook 'turn-on-rainbow-delimiters-mode))
-
 (defun erlang-elixir/init-ruby-end ()
   (use-package ruby-end
     :defer t
-    :config (spacemacs|hide-lighter ruby-end-mode)))
-
-(defun erlang-elixir/init-smartparens ()
-  (add-hook 'erlang-mode-hook
-            (if dotspacemacs-smartparens-strict-mode
-                'smartparens-strict-mode
-              'smartparens-mode)))
-
-(defun erlang-elixir/init-yasnippet ()
-  (add-hook 'erlang-mode-hook 'spacemacs/load-yasnippet))
+    :config
+    (progn
+      (spacemacs|hide-lighter ruby-end-mode)
+      ;; hack to remove the autoloaded `add-hook' in `ruby-end'
+      (remove-hook 'ruby-mode-hook 'ruby-end-mode)
+      (remove-hook 'enh-ruby-mode-hook 'ruby-end-mode))))

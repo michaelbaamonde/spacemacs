@@ -1,21 +1,26 @@
-(load (concat user-emacs-directory "core/spacemacs-mode.el"))
-(require 'config-system)
+;;; init.el --- Spacemacs Initialization File
+;;
+;; Copyright (c) 2012-2014 Sylvain Benner
+;; Copyright (c) 2014-2015 Sylvain Benner & Contributors
+;;
+;; Author: Sylvain Benner <sylvain.benner@gmail.com>
+;; URL: https://github.com/syl20bnr/spacemacs
+;;
+;; This file is not part of GNU Emacs.
+;;
+;;; License: GPLv3
+(defconst spacemacs-version          "0.100.1" "Spacemacs version.")
+(defconst spacemacs-emacs-min-version   "24.3" "Minimal version of Emacs.")
+
+(defun spacemacs/emacs-version-ok ()
+  (version<= spacemacs-emacs-min-version emacs-version))
 
 (when (spacemacs/emacs-version-ok)
-  (dotspacemacs/load)
-  (spacemacs/initialize)
-  (config-system/package.el-initialize)
-  ;; Initializing configuration from ~/.spacemacs
-  (dotspacemacs|call-func dotspacemacs/init)
-  ;; synchronize and load configuration layers
-  (config-system/declare-layers)
-  (config-system/load-layers)
-  (config-system/delete-orphan-packages)
-  ;; Ultimate configuration decisions are given to the user who can defined
-  ;; them in his/her ~/.spacemacs file
-  (dotspacemacs|call-func dotspacemacs/config)
-  (config-system/setup-after-init-hook)
-  ;; start a server for subsequent emacs clients
+  (load-file (concat user-emacs-directory "core/core-load-paths.el"))
+  (require 'core-spacemacs)
+  (require 'core-configuration-layer)
+  (spacemacs/init)
+  (configuration-layer/sync)
+  (spacemacs/setup-after-init-hook)
   (require 'server)
-  (unless (server-running-p)
-    (server-start)))
+  (unless (server-running-p) (server-start)))

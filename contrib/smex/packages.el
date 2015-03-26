@@ -1,3 +1,15 @@
+;;; packages.el --- smex Layer packages File for Spacemacs
+;;
+;; Copyright (c) 2012-2014 Sylvain Benner
+;; Copyright (c) 2014-2015 Sylvain Benner & Contributors
+;;
+;; Author: Sylvain Benner <sylvain.benner@gmail.com>
+;; URL: https://github.com/syl20bnr/spacemacs
+;;
+;; This file is not part of GNU Emacs.
+;;
+;;; License: GPLv3
+
 (defvar smex-packages '(smex)
   "List of all packages to install and/or initialize. Built-in packages
 which require an initialization must be listed explicitly in the list.")
@@ -24,15 +36,20 @@ which require an initialization must be listed explicitly in the list.")
           (smex-major-mode-commands)))
 
       (defun spacemacs/smex-define-keys ()
-        (when dotspacemacs-feature-toggle-leader-on-jk
-          (evil-leader/set-key-for-mode 'ido-mode
-            "g"   'smex-find-function
-            "hdf" 'smex-describe-function
-            "hw"  'smex-where-is))
-        (key-chord-define ido-completion-map (kbd "jk")
-                          (cdr (assoc 'ido-mode evil-leader--mode-maps))))
+        ;; (when dotspacemacs-feature-toggle-leader-on-jk
+        ;;   (evil-leader/set-key-for-mode 'ido-mode
+        ;;     "g"   'smex-find-function
+        ;;     "hdf" 'smex-describe-function
+        ;;     "hw"  'smex-where-is))
+        ;; (key-chord-define ido-completion-map (kbd "jk")
+        ;;                   (cdr (assoc 'ido-mode evil-leader--mode-maps)))
+        )
 
-      (evil-leader/set-key dotspacemacs-command-key 'spacemacs/smex)
+      ;; define the key binding at the very end in order to allow the user
+      ;; to overwrite any key binding
+      (add-hook 'after-init-hook
+                (lambda () (evil-leader/set-key dotspacemacs-command-key
+                             'spacemacs/smex)))
       (evil-leader/set-key "m:" 'spacemacs/smex-major-mode-commands)
       (global-set-key (kbd "M-x") 'smex)
       (global-set-key (kbd "M-X") 'smex)

@@ -1,3 +1,15 @@
+;;; packages.el --- Python Layer packages File for Spacemacs
+;;
+;; Copyright (c) 2012-2014 Sylvain Benner
+;; Copyright (c) 2014-2015 Sylvain Benner & Contributors
+;;
+;; Author: Sylvain Benner <sylvain.benner@gmail.com>
+;; URL: https://github.com/syl20bnr/spacemacs
+;;
+;; This file is not part of GNU Emacs.
+;;
+;;; License: GPLv3
+
 (defvar python-packages
   '(
     anaconda-mode
@@ -7,10 +19,13 @@
     evil-jumper
     flycheck
     hy-mode
+    pony-mode
+    pyenv-mode
     pyvenv
     python
     semantic
     smartparens
+    cython-mode
     )
   "List of all packages to install and/or initialize. Built-in packages
 which require an initialization must be listed explicitly in the list.")
@@ -19,7 +34,16 @@ which require an initialization must be listed explicitly in the list.")
   (use-package ac-anaconda
     :if (boundp 'ac-sources)
     :defer t
-    :init (add-hook 'python-mode-hook 'ac-anaconda-setup)))
+    :init (add-hook 'python-mode-hook 'ac-anaconda-setup)
+    :config
+    (progn
+      (add-to-list 'evil-emacs-state-modes 'anaconda-nav-mode)
+      (spacemacs/activate-evil-leader-for-map 'anaconda-nav-mode-map)
+      (spacemacs|evilify anaconda-nav-mode-map
+                         (kbd "H") 'previous-error
+                         (kbd "J") 'anaconda-nav-next-module
+                         (kbd "K") 'anaconda-nav-previous-module
+                         (kbd "L") 'next-error))))
 
 (defun python/init-anaconda-mode ()
   (use-package anaconda-mode
@@ -28,32 +52,91 @@ which require an initialization must be listed explicitly in the list.")
     :config
     (progn
       (evil-leader/set-key-for-mode 'python-mode
-        "md" 'anaconda-mode-view-doc
-        "mg"  'anaconda-mode-goto)
+        "mhh" 'anaconda-mode-view-doc
+        "mgg"  'anaconda-mode-goto)
       (spacemacs|hide-lighter anaconda-mode))))
 
 (defun python/init-company-anaconda ()
   (use-package company-anaconda
     :if (boundp 'company-backends)
     :defer t
-    :init (add-to-list 'company-backends 'company-anaconda)))
+    :init
+    (if (configuration-layer/package-declaredp 'yasnippet)
+        (add-to-list 'company-backends (company-mode/backend-with-yas
+                                        'company-anaconda))
+      (add-to-list 'company-backends 'company-anaconda))))
+
+(defun python/init-cython-mode ()
+  (use-package cython-mode
+    :defer t
+    :init
+    (progn
+      (evil-leader/set-key-for-mode 'cython-mode
+        "mhh" 'anaconda-mode-view-doc
+        "mgg"  'anaconda-mode-goto)
+      )))
 
 (defun python/init-eldoc ()
-  (use-package eldoc
-    :defer t
-    :init (add-hook 'python-mode-hook 'eldoc-mode)
-    :config (spacemacs|hide-lighter eldoc-mode)))
+  (add-hook 'python-mode-hook 'eldoc-mode))
 
 (defun python/init-evil-jumper ()
   (defadvice anaconda-mode-goto (before python/anaconda-mode-goto activate)
     (evil-jumper--push)))
+
+(defun python/init-pony-mode ()
+  (use-package pony-mode
+    :defer t
+    :init (progn
+            (evil-leader/set-key-for-mode 'python-mode
+              ; d*j*ango f*a*bric
+              "mjaf" 'pony-fabric
+              "mjad" 'pony-fabric-deploy
+              ; d*j*ango *f*iles
+              "mjfs" 'pony-goto-settings
+              "mjfc" 'pony-setting
+              "mjft" 'pony-goto-template
+              "mjfr" 'pony-resolve
+              ; d*j*ango *i*nteractive
+              "mjid" 'pony-db-shell
+              "mjis" 'pony-shell
+              ; d*j*ango *m*anage
+              ; not including one-off management commands like "flush" and
+              ; "startapp" even though they're implemented in pony-mode,
+              ; because this is much handier
+              "mjm" 'pony-manage
+              ; d*j*ango *r*unserver
+              "mjrd" 'pony-stopserver
+              "mjro" 'pony-browser
+              "mjrr" 'pony-restart-server
+              "mjru" 'pony-runserver
+              "mjrt" 'pony-temp-server
+              ; d*j*ango *s*outh/*s*yncdb
+              "mjsc" 'pony-south-convert
+              "mjsh" 'pony-south-schemamigration
+              "mjsi" 'pony-south-initial
+              "mjsm" 'pony-south-migrate
+              "mjss" 'pony-syncdb
+              ; d*j*ango *t*est
+              "mjtd" 'pony-test-down
+              "mjte" 'pony-test-goto-err
+              "mjto" 'pony-test-open
+              "mjtt" 'pony-test
+              "mjtu" 'pony-test-up))))
+
+(defun python/init-pyenv-mode ()
+  (use-package pyenv-mode
+    :defer t
+    :init (progn
+            (evil-leader/set-key-for-mode 'python-mode
+              "mvs" 'pyenv-mode-set
+              "mvu" 'pyenv-mode-unset))))
 
 (defun python/init-pyvenv ()
   (use-package pyvenv
     :defer t
     :init
     (evil-leader/set-key-for-mode 'python-mode
-      "mv" 'pyvenv-workon)))
+      "mV" 'pyvenv-workon)))
 
 (defun python/init-python ()
   (use-package python
@@ -89,6 +172,7 @@ which require an initialization must be listed explicitly in the list.")
                        'python-setup-shell))
     :config
     (progn
+      (add-hook 'inferior-python-mode-hook 'smartparens-mode)
       ;; add support for `ahs-range-beginning-of-defun' for python-mode
       (eval-after-load 'auto-highlight-symbol
         '(add-to-list 'ahs-plugin-bod-modes 'python-mode))
@@ -107,7 +191,7 @@ which require an initialization must be listed explicitly in the list.")
         (python-shell-switch-to-shell)
         (evil-insert-state))
 
-      (defun python-shell-send-region-switch ()
+      (defun python-shell-send-region-switch (start end)
         "Send region content to shell and switch to it in insert mode."
         (interactive "r")
         (python-shell-send-region start end)
@@ -120,18 +204,48 @@ which require an initialization must be listed explicitly in the list.")
         (python-shell-switch-to-shell)
         (evil-insert-state))
 
+      ;; reset compile-command (by default it is `make -k')
+      (setq compile-command nil)
+      (defun spacemacs/python-execute-file (arg)
+        "Execute a python script in a shell."
+        (interactive "P")
+        ;; set compile command to buffer-file-name
+        ;; universal argument put compile buffer in comint mode
+        (setq universal-argument t)
+        (if arg
+            (call-interactively 'compile)
+
+            (setq compile-command (format "python %s" (file-name-nondirectory
+                                                       buffer-file-name)))
+            (compile compile-command t)
+            (with-current-buffer (get-buffer "*compilation*")
+              (inferior-python-mode))))
+
+      (defun spacemacs/python-execute-file-focus (arg)
+        "Execute a python script in a shell and switch to the shell buffer in
+`insert state'."
+        (interactive "P")
+        (spacemacs/python-execute-file arg)
+        (switch-to-buffer-other-window "*compilation*")
+        (end-of-buffer)
+        (evil-insert-state))
+
       (evil-leader/set-key-for-mode 'python-mode
-        "mB"  'python-shell-send-buffer-switch
-        "mb"  'python-shell-send-buffer
-        "mF"  'python-shell-send-defun-switch
-        "mf"  'python-shell-send-defun
-        "mi"  'python-start-or-switch-repl
-        "mtb" 'python-toggle-breakpoint
-        "mR"  'python-shell-send-region-switch
-        "mr"  'python-shell-send-region)
+        "mcc" 'spacemacs/python-execute-file
+        "mcC" 'spacemacs/python-execute-file-focus
+        "mdb" 'python-toggle-breakpoint
+        "msB" 'python-shell-send-buffer-switch
+        "msb" 'python-shell-send-buffer
+        "msF" 'python-shell-send-defun-switch
+        "msf" 'python-shell-send-defun
+        "msi" 'python-start-or-switch-repl
+        "msR" 'python-shell-send-region-switch
+        "msr" 'python-shell-send-region)
 
       (define-key inferior-python-mode-map (kbd "C-j") 'comint-next-input)
-      (define-key inferior-python-mode-map (kbd "C-k") 'comint-previous-input))))
+      (define-key inferior-python-mode-map (kbd "C-k") 'comint-previous-input)
+      (define-key inferior-python-mode-map (kbd "C-l") 'comint-clear-buffer)
+      (define-key inferior-python-mode-map (kbd "C-r") 'comint-history-isearch-backward))))
 
 (defun python/init-flycheck ()
   (add-hook 'python-mode-hook 'flycheck-mode))

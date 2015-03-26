@@ -1,12 +1,33 @@
+;;; packages.el --- Colors Layer packages File for Spacemacs
+;;
+;; Copyright (c) 2012-2014 Sylvain Benner
+;; Copyright (c) 2014-2015 Sylvain Benner & Contributors
+;;
+;; Author: Sylvain Benner <sylvain.benner@gmail.com>
+;; URL: https://github.com/syl20bnr/spacemacs
+;;
+;; This file is not part of GNU Emacs.
+;;
+;;; License: GPLv3
+
 (defvar colors-packages
   '(
+    ;; not working well for now
+    ;; rainbow-blocks
     rainbow-identifiers
+    rainbow-mode
     )
   "List of all packages to install and/or initialize. Built-in packages
 which require an initialization must be listed explicitly in the list.")
 
+(defun colors/init-rainbow-blocks ()
+  (use-package rainbow-blocks
+    :disabled t
+    :init (add-hook 'emacs-lisp-mode-hook 'rainbow-blocks-mode)))
+
 (defun colors/init-rainbow-identifiers ()
   (use-package rainbow-identifiers
+    :if colors-enable-rainbow-identifiers
     :commands rainbow-identifiers-mode
     :init
     (progn 
@@ -59,8 +80,8 @@ disabling some faces in order to make colored identifiers stand out."
                                   rainbow-identifiers-cie-l*a*b*-lightness 40))
           (`monokai (setq rainbow-identifiers-cie-l*a*b*-saturation 55
                           rainbow-identifiers-cie-l*a*b*-lightness 60))
-          (`solarized-dark (setq rainbow-identifiers-cie-l*a*b*-saturation 85
-                                 rainbow-identifiers-cie-l*a*b*-lightness 65))
+          (`solarized-dark (setq rainbow-identifiers-cie-l*a*b*-saturation 65
+                                 rainbow-identifiers-cie-l*a*b*-lightness 55))
           (`solarized-light (setq rainbow-identifiers-cie-l*a*b*-saturation 100
                                   rainbow-identifiers-cie-l*a*b*-lightness 40))
           (`zenburn (setq rainbow-identifiers-cie-l*a*b*-saturation 40
@@ -75,11 +96,11 @@ disabling some faces in order to make colored identifiers stand out."
                 (face-all-attributes font-lock-keyword-face frame)))
         ;; tweak the font locks
         (colors//tweak-theme-colors-font-lock)))
-    (colors//tweak-theme-colors spacemacs-cur-theme)
+    (colors//tweak-theme-colors spacemacs--cur-theme)
 
     (defadvice spacemacs/post-theme-init (after colors/post-theme-init activate)
       "Adjust lightness and brightness of rainbow-identifiers on post theme init."
-      (colors//tweak-theme-colors spacemacs-cur-theme))
+      (colors//tweak-theme-colors spacemacs--cur-theme))
 
     :config
     (progn
@@ -160,3 +181,9 @@ Press any other key to exit." component (eval var) component component)))
       ;; key bindings
       (evil-leader/set-key "Cis" 'colors/start-change-color-saturation)
       (evil-leader/set-key "Cil" 'colors/start-change-color-lightness))))
+
+(defun colors/init-rainbow-mode ()
+  (use-package rainbow-mode
+    :commands rainbow-mode
+    :init (evil-leader/set-key "tCc" 'rainbow-mode)
+    :config (spacemacs|hide-lighter rainbow-mode)))

@@ -1,7 +1,20 @@
+;;; config.el --- Spacemacs Layer configuration File
+;;
+;; Copyright (c) 2012-2014 Sylvain Benner
+;; Copyright (c) 2014-2015 Sylvain Benner & Contributors
+;;
+;; Author: Sylvain Benner <sylvain.benner@gmail.com>
+;; URL: https://github.com/syl20bnr/spacemacs
+;;
+;; This file is not part of GNU Emacs.
+;;
+;;; License: GPLv3
+
 ;; ---------------------------------------------------------------------------
-;; Prefixes 
+;; Prefixes
 ;; ---------------------------------------------------------------------------
 
+;; We define prefix commands only for the sake of guide-key
 (setq spacemacs/key-binding-prefixes '(("a" .  "applications")
                                        ("as" . "applications-shells")
                                        ("b" .  "buffers")
@@ -16,14 +29,17 @@
                                        ("hd" . "help-describe")
                                        ("i" .  "insertion")
                                        ("j" .  "join/split")
+                                       ("k" .  "lisp")
+                                       ("kd" .  "lisp-delete")
+                                       ("kD" .  "lisp-delete-backward")
                                        ("n" .  "narrow/numbers")
                                        ("p" .  "projects")
-                                       ("p4" . "perforce")
                                        ("q" .  "quit")
                                        ("r" .  "registers/rings")
                                        ("s" .  "search/symbol")
                                        ("S" .  "spelling")
                                        ("t" .  "toggles")
+                                       ("tC" . "toggles-colors")
                                        ("tm" . "toggles-modeline")
                                        ("T" .  "themes")
                                        ("w" .  "windows")
@@ -44,18 +60,26 @@
 ;; ---------------------------------------------------------------------------
 
 (ido-mode t)
-(setq ido-enable-flex-matching t) ;; enable fuzzy matching
-(setq ido-save-directory-list-file (concat spacemacs-cache-directory "ido.last"))
+(setq ido-save-directory-list-file (concat spacemacs-cache-directory "ido.last")
+      ;; enable fuzzy matching
+      ido-enable-flex-matching t)
 ;; Auto refresh buffers
 (global-auto-revert-mode 1)
 ;; Also auto refresh dired, but be quiet about it
-(setq global-auto-revert-non-file-buffers t)
-(setq auto-revert-verbose nil)
+(setq global-auto-revert-non-file-buffers t
+      auto-revert-verbose nil)
 ;; activate winner mode use to undo and redo windows layout
 (winner-mode t)
 ;; no beep pleeeeeease ! (and no visual blinking too please)
 (custom-set-variables '(ring-bell-function 'ignore))
 (setq visible-bell nil)
+;; required for evil folding
+(defun spacemacs//enable-hs-minor-mode ()
+  "Enable hs-minor-mode for code folding."
+  (ignore-errors
+    (hs-minor-mode)
+    (spacemacs|hide-lighter hs-minor-mode)))
+(add-hook 'prog-mode-hook 'spacemacs//enable-hs-minor-mode)
 
 ;; Hack to fix a bug with tabulated-list.el
 ;; see: http://redd.it/2dgy52
@@ -70,6 +94,13 @@ It runs `tabulated-list-revert-hook', then calls `tabulated-list-print'."
   ;; (tabulated-list-print t)
   (tabulated-list-print))
 
+;; evilify process-menu
+(add-to-list 'evil-emacs-state-modes 'process-menu-mode)
+(spacemacs|evilify 'process-menu-mode)
+
+;; Mouse cursor in terminal mode
+(xterm-mouse-mode 1)
+
 ;; ---------------------------------------------------------------------------
 ;; Edit
 ;; ---------------------------------------------------------------------------
@@ -78,12 +109,12 @@ It runs `tabulated-list-revert-hook', then calls `tabulated-list-print'."
 ;; because it avoids autoloads of elisp modes)
 (setq initial-major-mode 'text-mode)
 ;; whitespace-mode
-(setq-default show-trailing-whitespace nil)
+(add-hook 'prog-mode-hook (lambda () (setq show-trailing-whitespace 1)))
 ;; When point is on paranthesis, highlight the matching one
 (show-paren-mode t)
 ;; use only spaces and no tabs
-(setq-default indent-tabs-mode nil)
-(setq default-tab-width 2)
+(setq-default indent-tabs-mode nil
+              default-tab-width 2)
 ;; turn on electric-indent-mode for both 24.3 and 24.4
 (electric-indent-mode)
 ;; Text
@@ -103,13 +134,14 @@ Can be installed with `brew install trash'."
     ;; regular move to trash directory
     (setq trash-directory "~/.Trash/emacs")))
 
+;; auto fill breaks line beyond current-fill-column
+(setq-default default-fill-column 80)
+(spacemacs|diminish auto-fill-function " ⓕ" " f")
+
 ;; ---------------------------------------------------------------------------
 ;; UI
 ;; ---------------------------------------------------------------------------
 
-;; reduce the mode name in mode line for emacs-lisp-mode
- (add-hook 'emacs-lisp-mode-hook
-           (lambda () (setq mode-name "Elisp")))
 ;; important for golden-ratio to better work
 (setq window-combination-resize t)
 ;; fringes
@@ -123,9 +155,6 @@ Can be installed with `brew install trash'."
 (global-hl-line-mode t)
 ;; no blink
 (blink-cursor-mode 0)
-;; tool tips in echo area
-(tooltip-mode -1)
-(setq tooltip-use-echo-area t)
 ;; When emacs asks for "yes" or "no", let "y" or "n" sufficide
 (fset 'yes-or-no-p 'y-or-n-p)
 ;; draw underline lower
@@ -138,7 +167,7 @@ Can be installed with `brew install trash'."
 ;; Emacs 24.4 new features
 (unless (version< emacs-version "24.4")
   (if dotspacemacs-fullscreen-at-startup
-      (toggle-frame-fullscreen)
+      (spacemacs/toggle-frame-fullscreen)
     (if dotspacemacs-maximized-at-startup
         (add-hook 'window-setup-hook 'toggle-frame-maximized))))
 
@@ -150,33 +179,35 @@ Can be installed with `brew install trash'."
 (setq custom-file (dotspacemacs/location))
 ;; scratch buffer empty
 (setq initial-scratch-message nil)
-(setq redisplay-dont-pause t)
 ;; don't create backup~ or #auto-save# files
-(setq backup-by-copying t)
-(setq make-backup-files nil)
-(setq auto-save-default nil)
-(setq create-lockfiles nil)
+(setq backup-by-copying t
+      make-backup-files nil
+      auto-save-default nil
+      create-lockfiles nil)
 (require 'uniquify)
 ;; When having windows with repeated filenames, uniquify them
 ;; by the folder they are in rather those annoying <2>,<3>,.. etc
-(setq uniquify-buffer-name-style 'post-forward-angle-brackets)
-; don't screw special buffers
-(setq uniquify-ignore-buffers-re "^\\*")
+(setq uniquify-buffer-name-style 'post-forward-angle-brackets
+      ;; don't screw special buffers
+      uniquify-ignore-buffers-re "^\\*")
+;; remove annoying ellipsis when printing sexp in message buffer
+(setq eval-expression-print-length nil
+      eval-expression-print-level nil)
 ;; Save point position between sessions
 (require 'saveplace)
-(setq-default save-place t)
-(setq save-place-file (concat spacemacs-cache-directory "places"))
+(setq save-place t
+      save-place-file (concat spacemacs-cache-directory "places"))
 
 ;; minibuffer history
 (require 'savehist)
 (setq savehist-file (concat spacemacs-cache-directory "savehist")
       enable-recursive-minibuffers t ; Allow commands in minibuffers
       history-length 1000
-      savehist-additional-variables '(search ring regexp-search-ring)
+      savehist-additional-variables '(kill-ring mark-ring global-mark-ring search-ring regexp-search-ring extended-command-history)
       savehist-autosave-interval 60)
 (savehist-mode +1)
 
-;; auto-save 
+;; auto-save
 (let
     ((autosave-dir (expand-file-name (concat spacemacs-cache-directory "autosave"))))
   (unless (file-exists-p autosave-dir)
@@ -184,14 +215,31 @@ Can be installed with `brew install trash'."
   (setq auto-save-list-file-prefix (concat autosave-dir "/")
         auto-save-file-name-transforms `((".*" ,autosave-dir t))))
 
+;; cache files
 ;; bookmarks
-(setq bookmark-default-file (concat spacemacs-cache-directory "bookmarks"))
-(setq bookmark-save-flag 1) ;; save after every change
+(setq bookmark-default-file (concat spacemacs-cache-directory "bookmarks")
+      ;; save after every change
+      bookmark-save-flag 1
+      url-configuration-directory (concat spacemacs-cache-directory "url")
+      eshell-directory-name (concat spacemacs-cache-directory "eshell" )
+      tramp-persistency-file-name (concat spacemacs-cache-directory "tramp"))
 
-;; keep buffers opened when leaving an emacs client
-(setq server-kill-new-buffers nil)
 ;; increase memory threshold for GC
 (setq gc-cons-threshold 20000000)
+
+;; seems pointless to warn. There's always undo.
+(put 'narrow-to-region 'disabled nil)
+(put 'upcase-region 'disabled nil)
+(put 'downcase-region 'disabled nil)
+(put 'erase-buffer 'disabled nil)
+(put 'scroll-left 'disabled nil)
+(put 'dired-find-alternate-file 'disabled nil)
+;; remove prompt if the file is opened in other clients
+(defun server-remove-kill-buffer-hook ()
+  (remove-hook 'kill-buffer-query-functions 'server-kill-buffer-query-function))
+(add-hook 'server-visit-hook 'server-remove-kill-buffer-hook)
+
+;; The following code is kept as reference -----------------------------------
 
 ;; ;; save a bunch of variables to the desktop file
 ;; ;; for lists specify the len of the maximal saved data also
@@ -281,15 +329,3 @@ Can be installed with `brew install trash'."
 ;;             ;;     (new-empty-buffer))
 ;;             )
 ;;           t) ;; append this hook to the tail
-
-;; seems pointless to warn. There's always undo.
-(put 'narrow-to-region 'disabled nil)
-(put 'upcase-region 'disabled nil)
-(put 'downcase-region 'disabled nil)
-(put 'erase-buffer 'disabled nil)
-(put 'scroll-left 'disabled nil)
-(put 'dired-find-alternate-file 'disabled nil)
-;; remove prompt if the file is opened in other clients
-(defun server-remove-kill-buffer-hook ()
-  (remove-hook 'kill-buffer-query-functions 'server-kill-buffer-query-function))
-(add-hook 'server-visit-hook 'server-remove-kill-buffer-hook)

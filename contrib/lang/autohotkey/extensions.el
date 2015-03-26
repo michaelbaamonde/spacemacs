@@ -15,11 +15,8 @@
 
 (defun autohotkey/init-ahk-mode ()
   (use-package ahk-mode
+    :defer t
     :init
     (evil-leader/set-key-for-mode 'ahk-mode
-      "m E" 'run-this-autohotkey-script
-      "m D" 'ahk-lookup-autohotkey-ref
-      )
-    :config
-    (progn
-      )))
+      "m d" 'ahk-lookup-ahk-ref
+      "m e" 'run-this-ahk-script)))

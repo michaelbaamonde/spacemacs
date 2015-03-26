@@ -1,6 +1,6 @@
 # Perforce contribution layer for Spacemacs
 
-![logo](p4.png)
+![logo](img/p4.png)
 
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc/generate-toc again -->
 **Table of Contents**
@@ -21,9 +21,7 @@ This layer adds support for [Perforce][] (p4).
 To use this contribution add it to your `~/.spacemacs`
 
 ```elisp
-(setq-default dotspacemacs-configuration-layers '(perforce)
-  "List of contribution to load."
-)
+(setq-default dotspacemacs-configuration-layers '(perforce))
 ```
 
 You'll have to install the `p4`` command line, [download page][].

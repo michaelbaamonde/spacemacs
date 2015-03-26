@@ -1,39 +1,49 @@
+;;; packages.el --- Git Layer packages File for Spacemacs
+;;
+;; Copyright (c) 2012-2014 Sylvain Benner
+;; Copyright (c) 2014-2015 Sylvain Benner & Contributors
+;;
+;; Author: Sylvain Benner <sylvain.benner@gmail.com>
+;; URL: https://github.com/syl20bnr/spacemacs
+;;
+;; This file is not part of GNU Emacs.
+;;
+;;; License: GPLv3
+
 (defvar git-packages
   '(
     fringe-helper
-    git-gutter-fringe
     git-messenger
+    git-rebase-mode
     git-timemachine
+    gist
+    github-browse-file
+    ;; not up to date
+    ;; helm-gist
     magit
+    magit-gh-pulls
     magit-gitflow
+    magit-svn
     smeargle
     )
   "List of all packages to install and/or initialize. Built-in packages
 which require an initialization must be listed explicitly in the list.")
 
-(defvar git-enable-github-support nil
-  "If non nil enable Github packages.")
-
-(when git-enable-github-support
-  (mapc (lambda (x) (push x git-packages))
-        '(
-          gist
-          github-browse-file
-          ;; not up to date
-          ;; helm-gist
-          magit-gh-pulls
-          )))
+(if git-gutter-use-fringe
+    (push 'git-gutter-fringe git-packages)
+  (push 'git-gutter git-packages))
 
 (defun git/init-gist ()
   (use-package gist
+    :if git-enable-github-support
     :defer t
     :init
     (progn
       (add-to-list 'evil-emacs-state-modes 'gist-list-menu-mode)
       (spacemacs|evilify gist-list-menu-mode-map
-        "f" 'gist-fetch-current
-        "K" 'gist-kill-current
-        "o" 'gist-browse-current-url)
+                         "f" 'gist-fetch-current
+                         "K" 'gist-kill-current
+                         "o" 'gist-browse-current-url)
 
       (evil-leader/set-key
         "ggb" 'gist-buffer
@@ -45,20 +55,37 @@ which require an initialization must be listed explicitly in the list.")
     (spacemacs/activate-evil-leader-for-map 'gist-list-menu-mode-map)
     ))
 
+(defun init-git-gutter ()
+  "Common initialization of git-gutter."
+  (git-gutter-mode)
+  (setq git-gutter:modified-sign " ")
+  (setq git-gutter:added-sign "+")
+  (setq git-gutter:deleted-sign "-")
+  (spacemacs|hide-lighter git-gutter-mode)
+  (if (and (not git-gutter-use-fringe)
+           global-linum-mode)
+      (git-gutter:linum-setup)))
+
+(defun git/init-git-gutter ()
+  (use-package git-gutter
+    :commands git-gutter-mode
+    :init
+    (progn
+      (init-git-gutter)
+      (add-to-hooks 'git-gutter-mode '(markdown-mode-hook
+                                       org-mode-hook
+                                       prog-mode-hook)))))
+
 (defun git/init-git-gutter-fringe ()
   (use-package git-gutter-fringe
     :commands git-gutter-mode
     :init
     (progn
       (defun git/load-git-gutter ()
-        "Lazy load git gutter and choose between fringe and no fringe
-implementation."
-        (if (display-graphic-p)
-            (progn
-              (require 'git-gutter-fringe)
-              (git-gutter-mode))
-          (git-gutter-mode)
-          (if global-linum-mode (git-gutter:linum-setup))))
+        "Lazy load git gutter and choose between fringe and no fringe."
+        (when (display-graphic-p) (require 'git-gutter-fringe))
+        (init-git-gutter))
+      (setq git-gutter-fr:side 'right-fringe)
       (add-to-hooks 'git/load-git-gutter '(markdown-mode-hook
                                            org-mode-hook
                                            prog-mode-hook)))
@@ -67,31 +94,34 @@ implementation."
       (setq git-gutter:hide-gutter t)
       ;; Don't need log/message.
       (setq git-gutter:verbosity 0)
-      (setq git-gutter-fr:side 'right-fringe)
+      (evil-leader/set-key
+        "ghs" 'git-gutter:stage-hunk
+        "ghr" 'git-gutter:revert-hunk
+        "ghN" 'git-gutter:previous-hunk
+        "ghn" 'git-gutter:next-hunk)
       ;; (setq git-gutter:update-hooks '(after-save-hook after-revert-hook))
       ;; custom graphics that works nice with half-width fringes
       (fringe-helper-define 'git-gutter-fr:added nil
-                            "..X...."
-                            "..X...."
-                            "XXXXX.."
-                            "..X...."
-                            "..X...."
-                            )
+        "..X...."
+        "..X...."
+        "XXXXX.."
+        "..X...."
+        "..X...."
+        )
       (fringe-helper-define 'git-gutter-fr:deleted nil
-                            "......."
-                            "......."
-                            "XXXXX.."
-                            "......."
-                            "......."
-                            )
+        "......."
+        "......."
+        "XXXXX.."
+        "......."
+        "......."
+        )
       (fringe-helper-define 'git-gutter-fr:modified nil
-                            "..X...."
-                            ".XXX..."
-                            "XXXXX.."
-                            ".XXX..."
-                            "..X...."
-                            )
-      (spacemacs|hide-lighter git-gutter-mode))))
+        "..X...."
+        ".XXX..."
+        "XXXXX.."
+        ".XXX..."
+        "..X...."
+        ))))
 
 (defun git/init-git-messenger ()
   (use-package git-messenger
@@ -100,12 +130,47 @@ implementation."
     (evil-leader/set-key
       "gm" 'git-messenger:popup-message)))
 
+(defun git/init-git-rebase-mode ()
+  (use-package git-rebase-mode
+    :defer t
+    :init
+    (add-to-list 'evil-emacs-state-modes 'git-rebase-mode)
+    :config
+    (progn
+      (spacemacs|evilify git-rebase-mode-map "y" 'git-rebase-insert)
+      (spacemacs/activate-evil-leader-for-map 'git-rebase-mode-map))))
+
 (defun git/init-git-timemachine ()
   (use-package git-timemachine
     :defer t
+    :commands spacemacs/time-machine-micro-state
     :init
     (evil-leader/set-key
-      "gt" 'git-timemachine)))
+      "gt" 'spacemacs/time-machine-micro-state)
+
+    :config
+    (progn
+
+      (defun spacemacs//time-machine-ms-on-enter ()
+        "Initiate git-timemachine properly with goden-ratio support."
+        (let ((golden-ratio (when (boundp 'golden-ratio-mode)
+                              golden-ratio-mode)))
+          (when (bound-and-true-p golden-ratio-mode) (golden-ratio-mode -1))
+          (git-timemachine)
+          (when golden-ratio (golden-ratio-mode))))
+
+      (spacemacs|define-micro-state time-machine
+        :doc "[p] [N] previous [n] next [c] current [Y] copy hash [q] quit"
+        :on-enter (spacemacs//time-machine-ms-on-enter)
+        :on-exit (git-timemachine-quit)
+        :persistent t
+        :bindings
+        ("c" git-timemachine-show-current-revision)
+        ("p" git-timemachine-show-previous-revision)
+        ("n" git-timemachine-show-next-revision)
+        ("N" git-timemachine-show-previous-revision)
+        ("Y" git-timemachine-kill-revision)
+        ("q" nil :exit t)))))
 
 ;; this mode is not up to date
 ;; any contributor to make it up to date is welcome:
@@ -129,15 +194,15 @@ implementation."
   (use-package magit
     :defer t
     :init
-    (evil-leader/set-key "gs" 'magit-status)
+    (setq magit-completing-read-function 'magit-ido-completing-read)
+    (evil-leader/set-key
+      "gb" 'magit-blame-mode
+      "gl" 'magit-log
+      "gs" 'magit-status
+      "gC" 'magit-commit)
     :config
     (progn
       (spacemacs|hide-lighter magit-auto-revert-mode)
-      ;; full screen magit-status
-      (defadvice magit-status (around magit-fullscreen activate)
-        (window-configuration-to-register :magit-fullscreen)
-        ad-do-it
-        (delete-other-windows))
 
       ;; hjkl key bindings
       (spacemacs|evilify magit-commit-mode-map
@@ -180,13 +245,19 @@ implementation."
                                                  magit-commit-mode-map
                                                  magit-diff-mode-map))
 
+      ;; full screen magit-status
+      (when git-magit-status-fullscreen
+        (defadvice magit-status (around magit-fullscreen activate)
+          (window-configuration-to-register :magit-fullscreen)
+          ad-do-it
+          (delete-other-windows))
 
-      (defun magit-quit-session ()
-        "Restores the previous window configuration and kills the magit buffer"
-        (interactive)
-        (kill-buffer)
-        (jump-to-register :magit-fullscreen))
-      (define-key magit-status-mode-map (kbd "q") 'magit-quit-session)
+        (defun magit-quit-session ()
+          "Restores the previous window configuration and kills the magit buffer"
+          (interactive)
+          (kill-buffer)
+          (jump-to-register :magit-fullscreen))
+        (define-key magit-status-mode-map (kbd "q") 'magit-quit-session))
 
       (defun magit-toggle-whitespace ()
         (interactive)
@@ -206,13 +277,15 @@ implementation."
       (define-key magit-status-mode-map (kbd "W") 'magit-toggle-whitespace))))
 
 (defun git/init-magit-gh-pulls ()
-  (use-package magit-gh-pulls ()
+  (use-package magit-gh-pulls
+    :if git-enable-github-support
     :defer t
     :init (add-hook 'magit-mode-hook 'turn-on-magit-gh-pulls)
     :config (spacemacs|diminish magit-gh-pulls-mode "Github-PR")))
 
 (defun git/init-github-browse-file ()
   (use-package github-browse-file
+    :if git-enable-github-support
     :defer t
     :init
     (evil-leader/set-key
@@ -223,6 +296,16 @@ implementation."
     :commands turn-on-magit-gitflow
     :init (add-hook 'magit-mode-hook 'turn-on-magit-gitflow)
     :config (spacemacs|diminish magit-gitflow-mode "Flow")))
+
+(defun git/init-magit-svn ()
+  (use-package magit-svn
+    :if git-enable-magit-svn-plugin
+    :commands turn-on-magit-svn
+    :init (add-hook 'magit-mode-hook 'turn-on-magit-svn)
+    :config
+    (progn
+      (evil-define-key 'emacs magit-status-mode-map
+        "N" 'magit-key-mode-popup-svn))))
 
 (defun git/init-smeargle ()
   (use-package smeargle

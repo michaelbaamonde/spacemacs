@@ -1,34 +1,55 @@
+;;; packages.el --- Spacemacs Layer packages File
+;;
+;; Copyright (c) 2012-2014 Sylvain Benner
+;; Copyright (c) 2014-2015 Sylvain Benner & Contributors
+;;
+;; Author: Sylvain Benner <sylvain.benner@gmail.com>
+;; URL: https://github.com/syl20bnr/spacemacs
+;;
+;; This file is not part of GNU Emacs.
+;;
+;;; License: GPLv3
+
 (defvar spacemacs-packages
   '(
     ac-ispell
     ace-jump-mode
+    ace-window
     ag
     aggressive-indent
-    anzu
+    async
     auto-complete
     auto-complete-clang
     auto-dictionary
     auto-highlight-symbol
+    base16-theme
     bookmark
     buffer-move
     dash
     diminish
     dired+
+    doc-view
+    ediff
     elisp-slime-nav
+    eldoc
     evil
+    evil-anzu
     evil-args
     evil-escape
     evil-exchange
     evil-iedit-state
+    evil-indent-textobject
     evil-jumper
     evil-leader
     evil-lisp-state
     evil-nerd-commenter
+    evil-matchit
     evil-numbers
     evil-org
     evil-search-highlight-persist
     evil-surround
     evil-terminal-cursor-changer
+    evil-tutor
     evil-visualstar
     exec-path-from-shell
     expand-region
@@ -38,8 +59,9 @@
     fish-mode
     flx-ido
     flycheck
-    flycheck-ledger
     flyspell
+    ;; required for update
+    gh
     golden-ratio
     google-translate
     guide-key-tip
@@ -47,6 +69,7 @@
     helm-ag
     helm-c-yasnippet
     helm-descbinds
+    helm-flyspell
     helm-make
     helm-mode-manager
     ;; not working for now
@@ -55,37 +78,29 @@
     helm-swoop
     helm-themes
     highlight
+    hippie-exp
     hl-anything
+    hungry-delete
     ido-vertical-mode
     iedit
-    json-mode
-    ledger-mode
     let-alist
     leuven-theme
     linum-relative
-    markdown-mode
-    markdown-toc
     monokai-theme
     move-text
     multi-term
     neotree
+    noflet
     org
     org-bullets
     ;; annoying error message, disable it for now
     ;; org-trello
     page-break-lines
-    paradox
     popup
     popwin
     powerline
     projectile
-    ;; not working well for now
-    ;; rainbow-blocks
     rainbow-delimiters
-    ;; install fail on windows
-    ;; rainbow-mode
-    rcirc
-    rcirc-color
     recentf
     rfringe
     s
@@ -102,19 +117,22 @@
     wdired
     whitespace
     window-numbering
+    winner
     yasnippet
     zenburn-theme
-    zoom-frm
     )
   "List of all packages to install and/or initialize. Built-in packages
 which require an initialization must be listed explicitly in the list.")
 
 (defvar spacemacs-excluded-packages
-  '(evil-plugins     ; crashed spacemacs on startup (will wait before reactivating it)
+  '(
     fancy-narrow     ; too much bugs and bad side effects
     )
   "List of packages to exclude.")
 
+;; Paradox from MELPA is not compatible with 24.3 anymore
+(unless  (version< emacs-version "24.4")
+    (push 'paradox spacemacs-packages))
 
 ;; Initialization of packages
 
@@ -143,6 +161,27 @@ which require an initialization must be listed explicitly in the list.")
       (setq ace-jump-mode-scope 'global)
       (evil-leader/set-key "`" 'ace-jump-mode-pop-mark))))
 
+(defun spacemacs/init-ace-window ()
+  (use-package ace-window
+    :defer t
+    :init
+    (evil-leader/set-key
+      "bM"  'ace-swap-window
+      "wC"  'ace-delete-window
+      "wW"  'ace-window)
+    :config
+    (progn
+      ;; add support for golden-ratio
+      (eval-after-load 'golden-ratio
+        '(setq golden-ratio-extra-commands
+               (append golden-ratio-extra-commands
+                       '(ace-window
+                         ace-delete-window
+                         ace-select-window
+                         ace-swap-window
+                         ace-maximize-window
+                         )))))))
+
 (defun spacemacs/init-aggressive-indent ()
   (use-package aggressive-indent
     :defer t
@@ -157,64 +196,7 @@ which require an initialization must be listed explicitly in the list.")
           (global-aggressive-indent-mode)))
       (evil-leader/set-key "ti" 'spacemacs/toggle-aggressive-indent))
     :config
-    (spacemacs|diminish aggressive-indent-mode " Ⓘ")))
-
-(defun spacemacs/init-anzu ()
-  (use-package anzu
-    :init
-    (global-anzu-mode t)
-    :config
-    (progn
-      (spacemacs|hide-lighter anzu-mode)
-
-      (defun spacemacs/anzu-update-mode-line (here total)
-        "Custom update function which does not propertize the status."
-        (when anzu--state
-          (let ((status (cl-case anzu--state
-                          (search (format "(%s/%d%s)"
-                                          (anzu--format-here-position here total)
-                                          total (if anzu--overflow-p "+" "")))
-                          (replace-query (format "(%d replace)" total))
-                          (replace (format "(%d/%d)" here total)))))
-            status)))
-
-      (defvar spacemacs-anzu-timer nil
-        "The current timer for ephemeral anzu display.")
-      (defun spacemacs/anzu-ephemeral-display ()
-        "Show anzu status for a limited amount of time."
-        (interactive)
-        (setq spacemacs-anzu-timer nil)
-        (anzu--reset-mode-line))
-      (defun spacemacs/anzu-evil-search (arg func)
-        "Show anzu status when pressing `n` or `N`"
-        (anzu--cons-mode-line-search)
-        (funcall func arg)
-        (anzu--update)
-        (if spacemacs-anzu-timer (cancel-timer spacemacs-anzu-timer))
-        (setq spacemacs-anzu-timer
-              (run-at-time "2 sec" nil 'spacemacs/anzu-ephemeral-display)))
-      (evil-define-command spacemacs/anzu-evil-search-next (arg)
-        "Show anzu status when executing evil-search-next"
-        :repeat ignore
-        (interactive "P")
-        (spacemacs/anzu-evil-search arg 'evil-search-next))
-      (evil-define-command spacemacs/anzu-evil-search-previous (arg)
-        "Show anzu status when executing evil-search-previous"
-        :repeat ignore
-        (interactive "P")
-        (spacemacs/anzu-evil-search arg 'evil-search-previous))
-      (define-key evil-normal-state-map "n" 'spacemacs/anzu-evil-search-next)
-      (define-key evil-normal-state-map "N" 'spacemacs/anzu-evil-search-previous)
-      (define-key evil-motion-state-map "n" 'spacemacs/anzu-evil-search-next)
-      (define-key evil-motion-state-map "N" 'spacemacs/anzu-evil-search-previous)
-      (eval-after-load 'evil-lisp-state
-        '(progn
-           (define-key evil-lisp-state-map "n" 'spacemacs/anzu-evil-search-next)
-           (define-key evil-lisp-state-map "N" 'spacemacs/anzu-evil-search-previous)))
-
-      (setq anzu-search-threshold 1000
-            anzu-cons-mode-line-p nil
-            anzu-mode-line-update-function 'spacemacs/anzu-update-mode-line))))
+    (spacemacs|diminish aggressive-indent-mode " Ⓘ" " I")))
 
 (defun spacemacs/init-auto-complete ()
   (use-package auto-complete
@@ -222,27 +204,27 @@ which require an initialization must be listed explicitly in the list.")
     :init
     (add-to-hooks 'auto-complete-mode '(org-mode-hook
                                         prog-mode-hook))
-    :idle (global-auto-complete-mode)
-    :idle-priority 1
     :config
     (progn
       (require 'auto-complete-config)
       (ac-config-default)
+      (when (configuration-layer/package-declaredp 'yasnippet)
+        (push 'ac-source-yasnippet ac-sources))
       (add-to-list 'completion-styles 'initials t)
       (evil-leader/set-key "ta" 'auto-complete-mode)
       (define-key ac-completing-map (kbd "C-j") 'ac-next)
       (define-key ac-completing-map (kbd "C-k") 'ac-previous)
       (define-key ac-completing-map (kbd "<S-tab>") 'ac-previous)
       ;; customization
-      (setq ac-auto-start 2
-            ac-delay 0.
+      (setq ac-auto-start 0
+            ac-delay 0.2
             ac-quick-help-delay 1.
             ac-use-fuzzy t
             ac-fuzzy-enable t
             ac-comphist-file (concat spacemacs-cache-directory "ac-comphist.dat")
             tab-always-indent 'complete ; use 'complete when auto-complete is disabled
             ac-dwim t)
-      (spacemacs|diminish auto-complete-mode " Ⓐ"))))
+      (spacemacs|diminish auto-complete-mode " Ⓐ" " A"))))
 
 (defun spacemacs/init-auto-complete-clang ()
   (use-package auto-complete-clang
@@ -276,7 +258,7 @@ which require an initialization must be listed explicitly in the list.")
 
 (defun spacemacs/init-auto-highlight-symbol ()
   (use-package auto-highlight-symbol
-    :commands auto-highlight-symbol-mode
+    :defer t
     :init
     (add-to-hooks 'auto-highlight-symbol-mode '(prog-mode-hook
                                                 markdown-mode-hook))
@@ -301,61 +283,79 @@ which require an initialization must be listed explicitly in the list.")
         (interactive)
         (if spacemacs-last-ahs-highlight-p
             (progn (goto-char (nth 1 spacemacs-last-ahs-highlight-p))
-                   (eval '(progn (ahs-highlight-now) (ahs-back-to-start)) nil))
+                   (eval '(progn (spacemacs/ahs-highlight-now-wrapper) (ahs-back-to-start)) nil))
           (message "No symbol has been searched for now.")))
 
       (defun spacemacs/integrate-evil-search (forward)
+        ;; isearch-string is last searched item.  Next time
+        ;; "n" is hit we will use this.
+        (setq isearch-string (concat "\\<" (evil-find-thing forward 'symbol) "\\>"))
+        (setq isearch-regexp (concat "\\<" (evil-find-thing forward 'symbol) "\\>"))
+        ;; Next time "n" is hit, go the correct direction.
+        (setq isearch-forward forward)
+        ;; ahs does a case sensitive search.  We could set
+        ;; this, but it would break the user's current
+        ;; sensitivity settings.  We could save the setting,
+        ;; then next time the user starts a search we could
+        ;; restore the setting.
+        ;;(setq case-fold-search nil)
+        ;; Place the search term into the search rings.
+        (isearch-update-ring isearch-string t)
+        (evil-push-search-history isearch-string forward)
+        ;; Use this search term for empty pattern "%s//replacement/"
+        ;; Append case sensitivity
+        (setq evil-ex-last-was-search nil
+              evil-ex-substitute-pattern `(,(concat isearch-string "\\C") nil (0 0)))
+        )
+
+      (defun spacemacs/ensure-ahs-enabled-locally ()
+        "Ensures ahs is enabled for the local buffer."
+        (unless
+            (bound-and-true-p ahs-mode-line)
+          (auto-highlight-symbol-mode)
+          ))
+
+      (defun spacemacs/ahs-highlight-now-wrapper ()
+        "Safe wrapper for ahs-highlight-now"
         (eval '(progn
-                 ;; isearch-string is last searched item.  Next time
-                 ;; "n" is hit we will use this.
-                 (setq isearch-string (concat "\\<" (evil-find-thing forward 'symbol) "\\>"))
-                 ;; Next time "n" is hit, go the correct direction.
-                 (setq isearch-forward forward)
-                 ;; ahs does a case sensitive search.  We could set
-                 ;; this, but it would break the user's current
-                 ;; sensitivity settings.  We could save the setting,
-                 ;; then next time the user starts a search we could
-                 ;; restore the setting.
-                 ;;(setq case-fold-search nil)
-                 ;; Place the search term into the search rings.
-                 (isearch-update-ring isearch-string t)
-                 (evil-push-search-history isearch-string forward)
-                 ;; Use this search term for empty pattern "%s//replacement/"
-                 ;; Append case sensitivity
-                 (setq evil-ex-last-was-search nil
-                       evil-ex-substitute-pattern `(,(concat isearch-string "\\C") nil (0 0)))
+                 (spacemacs/ensure-ahs-enabled-locally)
+                 (ahs-highlight-now)
                  ) nil))
 
       (defun spacemacs/quick-ahs-forward ()
         "Go to the next occurrence of symbol under point with
 `auto-highlight-symbol'"
         (interactive)
-        (eval '(progn (spacemacs/integrate-evil-search t) (ahs-highlight-now) (ahs-forward)) nil))
+        (eval '(progn (spacemacs/integrate-evil-search t)
+                      (spacemacs/ahs-highlight-now-wrapper)
+                      (when (configuration-layer/package-declaredp 'evil-jumper)
+                        (evil-set-jump))
+                      (ahs-forward)) nil))
 
       (defun spacemacs/quick-ahs-backward ()
         "Go to the previous occurrence of symbol under point with
 `auto-highlight-symbol'"
         (interactive)
-        (eval '(progn (spacemacs/integrate-evil-search nil) (ahs-highlight-now) (ahs-backward)) nil))
+        (eval '(progn (spacemacs/integrate-evil-search nil)
+                      (spacemacs/ahs-highlight-now-wrapper)
+                      (when (configuration-layer/package-declaredp 'evil-jumper)
+                        (evil-set-jump))
+                      (ahs-backward)) nil))
 
       (eval-after-load 'evil
         '(progn
-           (define-key evil-normal-state-map (kbd "*") 'spacemacs/quick-ahs-forward)
-           (define-key evil-normal-state-map (kbd "#") 'spacemacs/quick-ahs-backward)
            (define-key evil-motion-state-map (kbd "*") 'spacemacs/quick-ahs-forward)
-           (define-key evil-motion-state-map (kbd "#") 'spacemacs/quick-ahs-backward)
-           (eval-after-load 'evil-lisp-state
-             '(progn
-                (define-key evil-normal-state-map (kbd "*") 'spacemacs/quick-ahs-forward)
-                (define-key evil-normal-state-map (kbd "#") 'spacemacs/quick-ahs-backward)))))
+           (define-key evil-motion-state-map (kbd "#") 'spacemacs/quick-ahs-backward)))
 
       (defun spacemacs/symbol-highlight ()
         "Highlight the symbol under point with `auto-highlight-symbol'."
         (interactive)
         (eval '(progn
-                 (ahs-highlight-now)
+                 (spacemacs/ahs-highlight-now-wrapper)
                  (setq spacemacs-last-ahs-highlight-p (ahs-highlight-p))
-                 (spacemacs/auto-highlight-symbol-overlay-map)) nil))
+                 (spacemacs/auto-highlight-symbol-overlay-map)
+                 (spacemacs/integrate-evil-search nil)
+                 ) nil))
 
       (defun spacemacs/symbol-highlight-reset-range ()
         "Reset the range for `auto-highlight-symbol'."
@@ -377,7 +377,7 @@ which require an initialization must be listed explicitly in the list.")
                      ahs-change-range))
         (let* ((advice (intern (format "spacemacs/%s" (symbol-name sym)))))
           (eval `(defadvice ,sym (after ,advice activate)
-                   (ahs-highlight-now)
+                   (spacemacs/ahs-highlight-now-wrapper)
                    (setq spacemacs-last-ahs-highlight-p (ahs-highlight-p))
                    (spacemacs/auto-highlight-symbol-overlay-map)))))
       (defun spacemacs/auto-highlight-symbol-overlay-map ()
@@ -388,7 +388,7 @@ which require an initialization must be listed explicitly in the list.")
          (let ((map (make-sparse-keymap)))
            (define-key map (kbd "d") 'ahs-forward-definition)
            (define-key map (kbd "D") 'ahs-backward-definition)
-           (if (ht-contains? config-system-all-packages 'evil-iedit-state)
+           (if (ht-contains? configuration-layer-all-packages 'evil-iedit-state)
                (define-key map (kbd "e") 'evil-iedit-state/iedit-mode)
              (define-key map (kbd "e") 'ahs-edit-mode))
            (define-key map (kbd "n") 'ahs-forward)
@@ -406,10 +406,10 @@ which require an initialization must be listed explicitly in the list.")
                (plugin (format " <%s> " (cond ((string= plighter "HS") "D")
                                               ((string= plighter "HSA") "B")
                                               ((string= plighter "HSD") "F"))))
-               (propplugin (propertize plugin 'face `(
-                                                      :foreground "#ffffff"
-                                                      :background ,(face-attribute
-                                                                    'ahs-plugin-defalt-face :foreground)))))
+               (propplugin (propertize plugin 'face
+                                       `(:foreground "#ffffff"
+                                         :background ,(face-attribute
+                                                       'ahs-plugin-defalt-face :foreground)))))
           (while (not (string= overlay current-overlay))
             (setq i (1+ i))
             (setq overlay (format "%s" (nth i ahs-overlay-list))))
@@ -417,19 +417,15 @@ which require an initialization must be listed explicitly in the list.")
                  (propx/y (propertize x/y 'face ahs-plugin-whole-buffer-face))
                  (hidden (if (< 0 (- overlay-count (nth 4 st))) "*" ""))
                  (prophidden (propertize hidden 'face '(:weight bold))))
-            (echo "%s %s%s press (n/N) to navigate, (e) to edit, (r) to change range or (R) for reset"
+            (echo "%s %s%s press (n/N) to navigate, (e) to edit, (r) to change range or (R) for reset (d) to go to next definition (D) to go to previous definition"
                   propplugin propx/y prophidden)))))))
 
 (defun spacemacs/init-bookmark ()
   (use-package bookmark
-    :commands (bookmark-delete
-               bookmark-jump
-               bookmark-rename
-               bookmark-set)
-    :config
-    (setq
-     bookmark-default-file "~/.emacs.d/bookmarks" ; keep my ~/ clean
-     bookmark-save-flag 1)))                      ; autosave each change
+    :defer t
+    :init
+    (setq bookmark-default-file "~/.emacs.d/bookmarks" ; keep my ~/ clean
+          bookmark-save-flag 1)))                      ; autosave each change
 
 (defun spacemacs/init-buffer-move ()
   (use-package buffer-move
@@ -457,23 +453,118 @@ which require an initialization must be listed explicitly in the list.")
   (eval-after-load "abbrev"
     '(diminish 'abbrev-mode))
   (eval-after-load "subword"
-    '(diminish 'subword-mode)))
+    '(when (eval-when-compile (version< "24.3.1" emacs-version))
+       (diminish 'subword-mode))))
 
 (defun spacemacs/init-dired+ ()
   (use-package dired+
     :defer t))
 
+(defun spacemacs/init-doc-view ()
+  (use-package doc-view
+    :defer t
+    :config
+    (progn
+      (add-to-list 'evil-emacs-state-modes 'doc-view-mode)
+
+      (defun spacemacs/doc-view-search-new-query ()
+        "Initiate a new query."
+        (interactive)
+        (doc-view-search 'newquery))
+
+      (defun spacemacs/doc-view-search-new-query-backward ()
+        "Initiate a new query."
+        (interactive)
+        (doc-view-search 'newquery t))
+
+      ;; fixed a weird issue where toggling display does not
+      ;; swtich to text mode
+      (defadvice doc-view-toggle-display
+          (around spacemacs/doc-view-toggle-display activate)
+        (if (eq major-mode 'doc-view-mode)
+            (progn
+              ad-do-it
+              (text-mode)
+              (doc-view-minor-mode))
+          ad-do-it))
+
+      (spacemacs|evilify doc-view-mode-map
+                         "/"  'spacemacs/doc-view-search-new-query
+                         "?"  'spacemacs/doc-view-search-new-query-backward
+                         "gg" 'doc-view-first-page
+                         "G"  'doc-view-last-page
+                         "gt" 'doc-view-goto-page
+                         "h"  'doc-view-previous-page
+                         "j"  'doc-view-next-line-or-next-page
+                         "k"  'doc-view-previous-line-or-previous-page
+                         "K"  'doc-view-kill-proc-and-buffer
+                         "l"  'doc-view-next-page
+                         "n"  'doc-view-search
+                         "N"  'doc-view-search-backward
+                         (kbd "C-d") 'doc-view-scroll-up-or-next-page
+                         (kbd "C-k") 'doc-view-kill-proc
+                         (kbd "C-u") 'doc-view-scroll-down-or-previous-page)
+      (spacemacs/activate-evil-leader-for-map 'doc-view-mode-map))))
+
+;; notes from mijoharas
+;; We currently just set a few variables to make it look nicer.
+;; Here is my first attempt at evilifying the buffer, does not work correctly, help is very much welcome.
+
+;; ```
+;; (defun ediff/setup-ediff-keymaps ()
+;;   "setup the evil ediff keymap"
+;;     (progn
+;;      (add-to-list 'evil-emacs-state-modes 'Ediff)
+;;      (spacemacs|evilify ediff-mode-map)
+;;      (spacemacs/activate-evil-leader-for-map 'ediff-mode-map)
+;;       )
+;;   )
+
+;; ;; inside the use-package function
+;; (add-hook 'ediff-keymap-setup-hook 'ediff/setup-ediff-keymaps)
+;; ```
+(defun spacemacs/init-ediff ()
+  (use-package ediff
+    :defer t
+    :init
+    (progn
+      ;; first we set some sane defaults
+      (setq-default
+       ediff-window-setup-function 'ediff-setup-windows-plain
+       ;; emacs is evil and decrees that vertical shall henceforth be horizontal
+       ediff-split-window-function 'split-window-horizontally
+       ediff-merge-split-window-function 'split-window-horizontally))))
+
+
 (defun spacemacs/init-elisp-slime-nav ()
   ;; Elisp go-to-definition with M-. and back again with M-,
   (use-package elisp-slime-nav
     :defer t
+    :init
+    (add-hook 'emacs-lisp-mode-hook 'elisp-slime-nav-mode)))
+
+(defun spacemacs/init-eldoc ()
+  (use-package eldoc
+    :defer t
+    :init (add-hook 'emacs-lisp-mode-hook 'eldoc-mode)
     :config
-    (add-hook 'emacs-lisp-mode-hook (lambda () (elisp-slime-nav-mode t)))))
+    (progn
+      (spacemacs|hide-lighter eldoc-mode))))
 
 (defun spacemacs/init-evil ()
   (use-package evil
     :init
     (progn
+      (defvar spacemacs-evil-cursor-colors '((normal . "DarkGoldenrod2")
+                                             (insert . "chartreuse3")
+                                             (emacs  . "SkyBlue2")
+                                             (visual . "gray")
+                                             (motion . "plum3")
+                                             (lisp   . "HotPink1")
+                                             (iedit  . "firebrick1")
+                                             (iedit-insert  . "firebrick1"))
+        "Colors assigned to evil states.")
+
       (defun spacemacs/state-color-face (state)
         "Return the symbol of the face for the given STATE."
         (intern (format "spacemacs-%s-face" (symbol-name state))))
@@ -511,95 +602,181 @@ which require an initialization must be listed explicitly in the list.")
       (defun spacemacs/set-state-faces ()
         "Define or set the state faces."
         (mapcar (lambda (x) (spacemacs/defface-state-color (car x) (cdr x)))
-                '((normal . "DarkGoldenrod2")
-                  (insert . "chartreuse3")
-                  (emacs  . "SkyBlue2")
-                  (visual . "gray")
-                  (motion . "plum3")
-                  (lisp   . "HotPink1"))))
+                spacemacs-evil-cursor-colors))
       (spacemacs/set-state-faces)
 
       (defun set-default-evil-emacs-state-cursor ()
-        (setq evil-emacs-state-cursor `(,(spacemacs/state-color 'emacs) box)))
+        (let ((c (when dotspacemacs-colorize-cursor-according-to-state
+                   (spacemacs/state-color 'emacs))))
+          (setq evil-emacs-state-cursor `(,c box))))
       (defun set-default-evil-normal-state-cursor ()
-        (setq evil-normal-state-cursor `(,(spacemacs/state-color 'normal) box)))
+        (let ((c (when dotspacemacs-colorize-cursor-according-to-state
+                   (spacemacs/state-color 'normal))))
+          (setq evil-normal-state-cursor `(,c box))))
       (defun set-default-evil-insert-state-cursor ()
-        (setq evil-insert-state-cursor `(,(spacemacs/state-color 'insert) (bar . 2))))
+        (let ((c (when dotspacemacs-colorize-cursor-according-to-state
+                   (spacemacs/state-color 'insert))))
+          (setq evil-insert-state-cursor `(,c (bar . 2)))))
       (defun set-default-evil-visual-state-cursor ()
-        (setq evil-visual-state-cursor `(,(spacemacs/state-color 'visual) (hbar . 2))))
+        (let ((c (when dotspacemacs-colorize-cursor-according-to-state
+                   (spacemacs/state-color 'visual))))
+          (setq evil-visual-state-cursor `(,c (hbar . 2)))))
       (defun set-default-evil-motion-state-cursor ()
-        (setq evil-motion-state-cursor `(,(spacemacs/state-color 'motion) box)))
+        (let ((c (when dotspacemacs-colorize-cursor-according-to-state
+                   (spacemacs/state-color 'motion))))
+          (setq evil-motion-state-cursor `(,c box))))
       (defun set-default-evil-lisp-state-cursor ()
-        (setq evil-lisp-state-cursor `(,(spacemacs/state-color 'lisp) box)))
+        (let ((c (when dotspacemacs-colorize-cursor-according-to-state
+                   (spacemacs/state-color 'lisp))))
+          (setq evil-lisp-state-cursor `(,c box))))
+      (defun set-default-evil-iedit-state-cursor ()
+        (let ((c (when dotspacemacs-colorize-cursor-according-to-state
+                   (spacemacs/state-color 'iedit))))
+          (setq evil-iedit-state-cursor `(,c box))))
+      (defun set-default-evil-iedit-insert-state-cursor ()
+        (let ((c (when dotspacemacs-colorize-cursor-according-to-state
+                   (spacemacs/state-color 'iedit-insert))))
+          (setq evil-iedit-insert-state-cursor `(,c (bar . 2)))))
       (defun evil-insert-state-cursor-hide ()
-        (setq evil-insert-state-cursor `(,(spacemacs/state-color 'insert) (hbar . 0))))
+        (setq evil-insert-state-cursor '((hbar . 0))))
       (set-default-evil-emacs-state-cursor)
       (set-default-evil-normal-state-cursor)
       (set-default-evil-insert-state-cursor)
       (set-default-evil-visual-state-cursor)
       (set-default-evil-motion-state-cursor)
       (set-default-evil-lisp-state-cursor)
+      (set-default-evil-iedit-state-cursor)
+      (set-default-evil-iedit-insert-state-cursor)
+
       (evil-mode 1))
     :config
     (progn
-      (defvar spacemacs-last-base-state 'normal
-        "Last base state, the current value of this variable is used to
-determine the state to enable when escaping from the insert state.")
-      (make-variable-buffer-local 'spacemacs-last-base-state)
-      (defadvice evil-normal-state (before spacemacs/evil-normal-state activate)
-        "Advice to keep track of the last base state."
-        (setq spacemacs-last-base-state 'normal))
-      (defadvice evil-lisp-state (before spacemacs/evil-lisp-state activate)
-        "Advice to keep track of the last base state."
-        (setq spacemacs-last-base-state 'lisp))
-      ;; manage the base state target when leaving the insert state
-      (define-key evil-insert-state-map [escape]
-        (lambda () (interactive)
-          (let ((state (intern (format "evil-%s-state" spacemacs-last-base-state))))
-            (funcall state))))
-
       ;; evil ex-command key
+      (define-key evil-normal-state-map (kbd dotspacemacs-command-key) 'evil-ex)
+      (define-key evil-visual-state-map (kbd dotspacemacs-command-key) 'evil-ex)
       (define-key evil-motion-state-map (kbd dotspacemacs-command-key) 'evil-ex)
       ;; Make evil-mode up/down operate in screen lines instead of logical lines
       (define-key evil-normal-state-map "j" 'evil-next-visual-line)
       (define-key evil-normal-state-map "k" 'evil-previous-visual-line)
+      ;; Also in visual mode
+      (define-key evil-visual-state-map "j" 'evil-next-visual-line)
+      (define-key evil-visual-state-map "k" 'evil-previous-visual-line)
       ;; Make the current definition and/or comment visible.
       (define-key evil-normal-state-map "zf" 'reposition-window)
-      ;; quick navigation
-      (define-key evil-normal-state-map (kbd "L")
-        (lambda () (interactive)
-          (evil-window-bottom)
-          (evil-scroll-line-to-center nil)))
-      (define-key evil-normal-state-map (kbd "H")
-        (lambda () (interactive)
-          (evil-window-top)
-          (evil-scroll-line-to-center nil)))
+
       (evil-leader/set-key "re" 'evil-show-registers)
+
+      ;; scrolling micro state
+      (defun spacemacs/scroll-half-page-up ()
+        "Scroll half a page up while keeping cursor in middle of page."
+        (interactive)
+        (evil-window-top)
+        (let ((recenter-redisplay nil))
+          (recenter nil)))
+      (defun spacemacs/scroll-half-page-down ()
+        "Scroll half a page down while keeping cursor in middle of page."
+        (interactive)
+        (evil-window-bottom)
+        ;; required to make repeated presses idempotent
+        (evil-next-visual-line)
+        (let ((recenter-redisplay nil))
+          (recenter nil)))
+      (spacemacs|define-micro-state scroll
+        :doc "[,] page up [.] page down [<] half page up [>] half page down"
+        :use-minibuffer t
+        :execute-binding-on-enter t
+        :evil-leader "n." "n," "n<" "n>"
+        :bindings
+        ;; page
+        ("," evil-scroll-page-up)
+        ("." evil-scroll-page-down)
+        ;; half page
+        ("<" spacemacs/scroll-half-page-up)
+        (">" spacemacs/scroll-half-page-down))
+
+      ;; pasting micro-state
+      (defadvice evil-paste-before (after spacemacs/evil-paste-before activate)
+        "Initate the paste micro-state after the execution of evil-paste-before"
+        (spacemacs/paste-micro-state))
+      (defadvice evil-paste-after (after spacemacs/evil-paste-after activate)
+        "Initate the paste micro-state after the execution of evil-paste-after"
+        (spacemacs/paste-micro-state))
+      (defadvice evil-visual-paste (after spacemacs/evil-visual-paste activate)
+        "Initate the paste micro-state after the execution of evil-visual-paste"
+        (spacemacs/paste-micro-state))
+      (defun spacemacs//paste-ms-doc ()
+        "The documentation for the paste micro-state."
+        (format (concat "[%s/%s] Type [p] or [P] to paste the previous or "
+                        "next copied text, [.] to paste the same text")
+                (length kill-ring-yank-pointer) (length kill-ring)))
+      (spacemacs|define-micro-state paste
+        :doc (spacemacs//paste-ms-doc)
+        :use-minibuffer t
+        :bindings
+        ("p" evil-paste-pop)
+        ("P" evil-paste-pop-next))
+      (unless dotspacemacs-enable-paste-micro-state
+        (ad-disable-advice 'evil-paste-before 'after 'spacemacs/evil-paste-before)
+        (ad-activate 'evil-paste-before)
+        (ad-disable-advice 'evil-paste-after 'after 'spacemacs/evil-paste-after)
+        (ad-activate 'evil-paste-after)
+        (ad-disable-advice 'evil-visual-paste 'after 'spacemacs/evil-visual-paste)
+        (ad-activate 'evil-visual-paste))
+
+
       ;; define text objects
-      (defmacro define-and-bind-text-object (key start-regex end-regex)
-        (let ((inner-name (make-symbol "inner-name"))
-              (outer-name (make-symbol "outer-name")))
+      (defmacro spacemacs|define-and-bind-text-object (key name start-regex end-regex)
+        (let ((inner-name (make-symbol (concat "evil-inner-" name)))
+              (outer-name (make-symbol (concat "evil-outer-" name))))
           `(progn
              (evil-define-text-object ,inner-name (count &optional beg end type)
-               (evil-regexp-range count beg end type ,start-regex ,end-regex t))
+               (evil-select-paren ,start-regex ,end-regex beg end type count nil))
              (evil-define-text-object ,outer-name (count &optional beg end type)
-               (evil-regexp-range count beg end type ,start-regex ,end-regex nil))
+               (evil-select-paren ,start-regex ,end-regex beg end type count t))
              (define-key evil-inner-text-objects-map ,key (quote ,inner-name))
              (define-key evil-outer-text-objects-map ,key (quote ,outer-name)))))
       ;; between dollars sign:
-      (define-and-bind-text-object "$" "\\$" "\\$")
+      (spacemacs|define-and-bind-text-object "$" "dollar" "\\$" "\\$")
       ;; between pipe characters:
-      (define-and-bind-text-object "|" "|" "|")
+      (spacemacs|define-and-bind-text-object "|" "bar" "|" "|")
       ;; between percent signs:
-      (define-and-bind-text-object "%" "%" "%")
+      (spacemacs|define-and-bind-text-object "%" "percent" "%" "%")
+
+      ;; add star block
+      (spacemacs|define-and-bind-text-object "*" "star-block" "/*" "*/")
+      ;; add slash block
+      (spacemacs|define-and-bind-text-object "/" "slash-block" "//" "//")
 
       ;; support smart 1parens-strict-mode
-      (if (ht-contains? config-system-all-packages 'smartparens)
+      (if (ht-contains? configuration-layer-all-packages 'smartparens)
           (defadvice evil-delete-backward-char-and-join
               (around spacemacs/evil-delete-backward-char-and-join activate)
             (if smartparens-strict-mode
                 (call-interactively 'sp-backward-delete-char)
               ad-do-it))))))
+
+(defun spacemacs/init-evil-anzu ()
+  (use-package evil-anzu
+    :init
+    (global-anzu-mode t)
+    :config
+    (progn
+      (spacemacs|hide-lighter anzu-mode)
+      (setq anzu-search-threshold 1000
+            anzu-cons-mode-line-p nil)
+      ;; powerline integration
+      (when (configuration-layer/package-declaredp 'powerline)
+        (defun spacemacs/anzu-update-mode-line (here total)
+          "Custom update function which does not propertize the status."
+          (when anzu--state
+            (let ((status (cl-case anzu--state
+                            (search (format "(%s/%d%s)"
+                                            (anzu--format-here-position here total)
+                                            total (if anzu--overflow-p "+" "")))
+                            (replace-query (format "(%d replace)" total))
+                            (replace (format "(%d/%d)" here total)))))
+              status)))
+        (setq anzu-mode-line-update-function 'spacemacs/anzu-update-mode-line)))))
 
 (defun spacemacs/init-evil-args ()
   (use-package evil-args
@@ -621,8 +798,6 @@ determine the state to enable when escaping from the insert state.")
     :init (evil-exchange-install)))
 
 (defun spacemacs/init-evil-iedit-state ()
-  (spacemacs/defface-state-color 'iedit "firebrick1")
-  (spacemacs/defface-state-color 'iedit-insert "firebrick1")
 
   (defun spacemacs/evil-state-lazy-loading ()
     (require 'evil-iedit-state)
@@ -630,27 +805,21 @@ determine the state to enable when escaping from the insert state.")
     (setq evil-iedit-insert-state-cursor `((spacemacs/state-color 'iedit-insert) (bar . 2)))
     ;; activate leader in iedit and iedit-insert states
     (define-key evil-iedit-state-map
-      (kbd evil-leader/leader) evil-leader--default-map)
-    ;; evil-escape support
-    (when (and (boundp 'evil-escape-mode)
-               (symbol-value evil-escape-mode))
-      (key-chord-define evil-iedit-state-map
-                        evil-escape-key-sequence
-                        'evil-iedit-state/quit-iedit-mode)
-      (key-chord-define evil-iedit-insert-state-map
-                        evil-escape-key-sequence
-                        'evil-iedit-state/quit-iedit-mode)))
+      (kbd evil-leader/leader) evil-leader--default-map))
 
   (evil-leader/set-key "se" 'evil-iedit-state/iedit-mode)
-  (add-to-hooks 'spacemacs/evil-state-lazy-loading '(prog-mode-hook
-                                                     markdown-mode-hook)))
+  (add-to-hooks 'spacemacs/evil-state-lazy-loading '(find-file-hook)))
+
+(defun spacemacs/init-evil-indent-textobject ()
+  (use-package evil-indent-textobject))
 
 (defun spacemacs/init-evil-jumper ()
   (use-package evil-jumper
     :init
-    (setq evil-jumper-auto-center t)
-    (setq evil-jumper-file (concat spacemacs-cache-directory "evil-jumps"))
-    (setq evil-jumper-auto-save-interval 3600)))
+    (progn
+      (evil-jumper-mode t)
+      (setq evil-jumper-file (concat spacemacs-cache-directory "evil-jumps"))
+      (setq evil-jumper-auto-save-interval 3600))))
 
 (defun spacemacs/init-evil-leader ()
   (use-package evil-leader
@@ -674,22 +843,24 @@ determine the state to enable when escaping from the insert state.")
         evil-leader--default-map)
       (define-key evil-motion-state-map (kbd dotspacemacs-leader-key)
         evil-leader--default-map)
-      ;; experimental: invoke leader with "jk" in insert mode
-      (when dotspacemacs-feature-toggle-leader-on-jk
-        (key-chord-define evil-insert-state-map (kbd "jk")
-                          evil-leader--default-map))
       ;; experimental: map SPC m to ,
       (when dotspacemacs-major-mode-leader-key
-        (add-hook 'after-change-major-mode-hook 'spacemacs/activate-major-mode-leader))
-        )))
+        (add-hook 'after-change-major-mode-hook
+                  'spacemacs/activate-major-mode-leader)))))
 
 (defun spacemacs/init-evil-lisp-state ()
-  (use-package evil-lisp-state
-    :init
-    (evil-leader/set-key-for-mode 'emacs-lisp-mode "ml" 'evil-lisp-state)))
+  (setq evil-lisp-state-global t)
+  (setq evil-lisp-state-leader-prefix "k")
+  (require 'evil-lisp-state))
 
 (defun spacemacs/init-evil-nerd-commenter ()
   (use-package evil-nerd-commenter
+    :commands (evilnc-comment-operator
+               evilnc-comment-or-uncomment-lines
+               evilnc-toggle-invert-comment-line-by-line
+               evilnc-comment-or-uncomment-paragraphs
+               evilnc-quick-comment-or-uncomment-to-the-line
+               evilnc-copy-and-comment-lines)
     :init
     (progn
       (evil-leader/set-key
@@ -699,6 +870,10 @@ determine the state to enable when escaping from the insert state.")
         "cp" 'evilnc-comment-or-uncomment-paragraphs
         "ct" 'evilnc-quick-comment-or-uncomment-to-the-line
         "cy" 'evilnc-copy-and-comment-lines))))
+
+(defun spacemacs/init-evil-matchit ()
+  (use-package evil-matchit
+    :defer t))
 
 (defun spacemacs/init-evil-numbers ()
   (use-package evil-numbers
@@ -739,7 +914,7 @@ determine the state to enable when escaping from the insert state.")
     (progn
       ;; to gather all the bindings at the same place the bindnings
       ;; for evil-org have been moved to `spacemacs/init-org'
-      (spacemacs|diminish evil-org-mode " Ⓔ"))))
+      (spacemacs|diminish evil-org-mode " Ⓔ" " E"))))
 
 ;; (defun spacemacs/init-evil-search-highlight-persist ()
 ;;   (use-package evil-search-highlight-persist
@@ -761,14 +936,36 @@ determine the state to enable when escaping from the insert state.")
 
 (defun spacemacs/init-evil-terminal-cursor-changer ()
   (unless (display-graphic-p)
-    (require 'evil-terminal-cursor-changer)))
+    (require 'evil-terminal-cursor-changer)
+     (setq evil-visual-state-cursor 'box) ; █
+     (setq evil-insert-state-cursor 'bar) ; ⎸
+     (setq evil-emacs-state-cursor 'hbar) ; _
+    ))
+
+(defun spacemacs/init-evil-tutor ()
+  (use-package evil-tutor
+    :commands (evil-tutor-start
+               evil-tutor-resume)
+    :init
+    (progn
+      (setq evil-tutor-working-directory
+            (concat spacemacs-cache-directory ".tutor/"))
+      (evil-leader/set-key "hT" 'evil-tutor-start))))
 
 (defun spacemacs/init-evil-visualstar ()
-  (use-package evil-visualstar))
+  (use-package evil-visualstar
+    :commands (evil-visualstar/begin-search-forward
+               evil-visualstar/begin-search-backward)
+    :init
+    (progn
+      (define-key evil-visual-state-map (kbd "*")
+        'evil-visualstar/begin-search-forward)
+      (define-key evil-visual-state-map (kbd "#")
+        'evil-visualstar/begin-search-backward))))
 
 (defun spacemacs/init-exec-path-from-shell ()
   (use-package exec-path-from-shell
-    :init (when (memq window-system '(mac ns))
+    :init (when (memq window-system '(mac ns x))
             (exec-path-from-shell-initialize))))
 
 (defun spacemacs/init-expand-region ()
@@ -786,12 +983,35 @@ determine the state to enable when escaping from the insert state.")
     :defer t
     :init
     (progn
+
       (defun spacemacs/mode-line-battery-info-toggle ()
         "Toggle display of battery info."
         (interactive)
         (if fancy-battery-mode
             (fancy-battery-mode -1)
-          (fancy-battery-mode)))
+          (fancy-battery-mode)
+          (spacemacs/mode-line-battery-remove-from-global)))
+
+      (defun spacemacs/mode-line-battery-remove-from-global ()
+        "Remove the battery info from the `global-mode-string'."
+        (setq global-mode-string (delq 'fancy-battery-mode-line
+                                       global-mode-string)))
+
+      (defun spacemacs/mode-line-battery-percentage ()
+        "Return the load percentage or an empty string."
+        (let ((p (cdr (assq ?p fancy-battery-last-status))))
+          (if (and fancy-battery-show-percentage
+                   p (not (string= "N/A" p))) (concat " " p "%%") "")))
+
+      (defun spacemacs/mode-line-battery-time ()
+        "Return the remaining time complete load or discharge."
+        (let ((time (cdr (assq ?t fancy-battery-last-status))))
+          (cond
+           ((string= "0:00" time) "")
+           ((string= "N/A" time) "")
+           ((string-empty-p time) "")
+           (t (concat " (" time ")")))))
+
       (setq-default fancy-battery-show-percentage t)
       (evil-leader/set-key "tmb" 'spacemacs/mode-line-battery-info-toggle))
     :config
@@ -800,24 +1020,27 @@ determine the state to enable when escaping from the insert state.")
       ;; basically remove all faces and properties.
       (defun fancy-battery-default-mode-line ()
         "Assemble a mode line string for Fancy Battery Mode."
+        (spacemacs/mode-line-battery-remove-from-global)
         (when fancy-battery-last-status
-          (let* ((time (cdr (assq ?t fancy-battery-last-status)))
-                 (percentage (cdr (assq ?p fancy-battery-last-status)))
-                 (status (if (or fancy-battery-show-percentage
-                                 (string= time "N/A"))
-                             (and percentage (concat (concat percentage "%%")
-                                                     " (" time ")"))
-                           time)))
-            (if status (concat " " status)
-              ;; Battery status is not available
-              "N/A"))))
+
+          (let* ((type (cdr (assq ?L fancy-battery-last-status)))
+                 (percentage (spacemacs/mode-line-battery-percentage))
+                 (time (spacemacs/mode-line-battery-time)))
+            (cond
+             ((string= "on-line" type) " No Battery")
+             ((string-empty-p type) " No Battery")
+             (t (concat (if (string= "AC" type) " AC" "") percentage time))))))
 
       (defun fancy-battery-powerline-face ()
         "Return a face appropriate for powerline"
-        (pcase (cdr (assq ?b fancy-battery-last-status))
-                   ("!"  'fancy-battery-critical)
-                   ("+"  ' fancy-battery-charging)
-                   (_ 'fancy-battery-discharging))))
+        (let ((type (cdr (assq ?L fancy-battery-last-status))))
+          (if (and type (string= "AC" type))
+              'fancy-battery-charging
+            (pcase (cdr (assq ?b fancy-battery-last-status))
+              ("!"  'fancy-battery-critical)
+              ("+"  'fancy-battery-charging)
+              ("-"  'fancy-battery-discharging)
+              (_ 'fancy-battery-discharging))))))
     ))
 
 (defun spacemacs/init-fancy-narrow ()
@@ -832,25 +1055,17 @@ determine the state to enable when escaping from the insert state.")
     ))
 
 (defun spacemacs/init-fill-column-indicator ()
-  (setq fci-rule-width 1)
-  (setq fci-enabled 0)
-
-  (defun toggle-fill-column-indicator ()
-    (interactive)
-    (make-local-variable 'fci-enabled)
-    (if (> fci-enabled 0) (deactivate-fci) (activate-fci)))
-
-  (defun activate-fci ()
-    (setq fci-rule-column 79)
-    (setq fci-enabled 1)
-    (fci-mode 1))
-
-  (defun deactivate-fci ()
-    (setq fci-enabled 0)
-    (fci-mode 0))
-
   (use-package fill-column-indicator
-    :commands toggle-fill-column-indicator))
+    :defer t
+    :init
+    (progn
+      (setq fci-rule-width 1)
+      (spacemacs|add-toggle fill-column-indicator
+                            :status fci-mode
+                            :on (turn-on-fci-mode)
+                            :off (turn-off-fci-mode)
+                            :documentation "Display the fill column indicator."
+                            :evil-leader "tc"))))
 
 (defun spacemacs/init-flx-ido ()
   (use-package flx-ido
@@ -859,18 +1074,9 @@ determine the state to enable when escaping from the insert state.")
 (defun spacemacs/init-flycheck ()
   (use-package flycheck
     :defer t
-    :init
-    (progn
-      (dolist (mode '(c
-                      coffee
-                      js
-                      json
-                      ruby))
-        (add-hook (intern (concat (symbol-name mode) "-mode-hook"))
-                  'flycheck-mode)))
     :config
     (progn
-      (spacemacs|diminish flycheck-mode " Ⓕ")
+      (spacemacs|diminish flycheck-mode " Ⓕ" " F")
 
       (setq flycheck-check-syntax-automatically '(save mode-enabled)
             flycheck-standard-error-navigation nil)
@@ -949,16 +1155,12 @@ determine the state to enable when escaping from the insert state.")
         :fringe-bitmap 'my-flycheck-fringe-indicator
         :fringe-face 'flycheck-fringe-info)
 
+
       ;; key bindings
       (evil-leader/set-key
-        "fc" 'flycheck-clear
-        "fl" 'flycheck-list-errors
-        "fn" 'flycheck-next-error
-        "fp" 'flycheck-previous-error))))
-
-(defun spacemacs/init-flycheck-ledger ()
-  (eval-after-load 'flycheck
-    '(require 'flycheck-ledger)))
+        "ec" 'flycheck-clear
+        "ef" 'flycheck-mode
+        "el" 'flycheck-list-errors))))
 
 (defun spacemacs/init-flyspell ()
   (use-package flyspell
@@ -970,26 +1172,28 @@ determine the state to enable when escaping from the insert state.")
       (add-hook 'markdown-mode-hook '(lambda () (flyspell-mode 1)))
       (add-hook 'text-mode-hook '(lambda () (flyspell-mode 1))))
     :config
-    (spacemacs|diminish flyspell-mode " Ⓢ")))
+    (spacemacs|diminish flyspell-mode " Ⓢ" " S")))
 
 (defun spacemacs/init-golden-ratio ()
   (use-package golden-ratio
     :defer t
     :init
-    (progn
-      (defun spacemacs/toggle-golden-ratio ()
-        "Toggle golden-ratio mode on and off."
-        (interactive)
-        (if (symbol-value golden-ratio-mode)
-            (progn (golden-ratio-mode -1)(balance-windows))
-          (golden-ratio-mode)
-          (golden-ratio)))
-      (evil-leader/set-key "tg" 'spacemacs/toggle-golden-ratio))
+    (spacemacs|add-toggle
+     golden-ratio
+     :status golden-ratio-mode
+     :on (golden-ratio-mode) (golden-ratio)
+     :off (golden-ratio-mode -1) (balance-windows)
+     :documentation "Dynamically resize the focused window using the golden ratio."
+     :evil-leader "tg")
     :config
     (progn
       (setq golden-ratio-extra-commands
             (append golden-ratio-extra-commands
-                    '(evil-window-left
+                    '(windmove-left
+                      windmove-right
+                      windmove-up
+                      windmove-down
+                      evil-window-left
                       evil-window-right
                       evil-window-up
                       evil-window-down
@@ -1023,8 +1227,9 @@ determine the state to enable when escaping from the insert state.")
       (add-to-list 'golden-ratio-inhibit-functions
                    'spacemacs/no-golden-ratio-guide-key)
       (add-to-list 'golden-ratio-exclude-buffer-names " *NeoTree*")
+      (add-to-list 'golden-ratio-exclude-buffer-names "*LV*")
 
-      (spacemacs|diminish golden-ratio-mode " ⊞"))))
+      (spacemacs|diminish golden-ratio-mode " ⊞" " G"))))
 
 (defun spacemacs/init-google-translate ()
   (use-package google-translate
@@ -1056,7 +1261,18 @@ determine the state to enable when escaping from the insert state.")
         (if (symbol-value guide-key-mode)
             (guide-key-mode -1)
           (guide-key-mode)))
-      (evil-leader/set-key "tG" 'spacemacs/toggle-guide-key)
+
+      (defadvice guide-key/popup-guide-buffer-p
+          (around spacemacs/inhibit-guide-buffer activate)
+        "Prevent the popup of the guide-key buffer in some case."
+        ;; a micro-state is running
+        ;; or
+        ;; bzg-big-fringe-mode is on
+        (unless (or overriding-terminal-local-map
+                    bzg-big-fringe-mode)
+          ad-do-it))
+
+      (evil-leader/set-key "tk" 'spacemacs/toggle-guide-key)
       (setq guide-key/guide-key-sequence `("C-x"
                                            "C-c"
                                            ,dotspacemacs-leader-key
@@ -1075,18 +1291,19 @@ determine the state to enable when escaping from the insert state.")
       (setq guide-key/highlight-command-regexp
                    (cons spacemacs/prefix-command-string font-lock-warning-face))
       (guide-key-mode 1)
-      (spacemacs|diminish guide-key-mode " Ⓖ"))))
+      (spacemacs|diminish guide-key-mode " Ⓚ" " K"))))
 
 (defun spacemacs/init-helm ()
   (use-package helm
     :defer t
     :init
-    (setq helm-split-window-in-side-p nil
-          helm-bookmark-show-location t
-          helm-buffers-fuzzy-matching t
-          helm-always-two-windows     t)
-    (evil-leader/set-key
-        dotspacemacs-command-key 'helm-M-x
+    (progn
+      (setq helm-prevent-escaping-from-minibuffer t
+            helm-split-window-in-side-p nil
+            helm-bookmark-show-location t
+            helm-buffers-fuzzy-matching t
+            helm-always-two-windows     t)
+      (evil-leader/set-key
         "bs"  'helm-mini
         "sl"  'helm-semantic-or-imenu
         "hb"  'helm-bookmarks
@@ -1095,12 +1312,36 @@ determine the state to enable when escaping from the insert state.")
         "rr"  'helm-register
         "rm"  'helm-all-mark-rings
         "fh"  'helm-find-files
-        "<f1>" 'helm-apropos
-        )
+        "fr"  'helm-recentf
+        "<f1>" 'helm-apropos)
+
+      ;; define the key binding at the very end in order to allow the user
+      ;; to overwrite any key binding
+      (add-hook 'after-init-hook
+                (lambda ()
+                  (evil-leader/set-key dotspacemacs-command-key 'helm-M-x)))
+
+      (defun spacemacs//helm-before-initialize ()
+        "Stuff to do before helm initializes."
+        ;; be sure that any previous micro-state face override are
+        ;; wiped out
+        (setq face-remapping-alist nil))
+      (add-hook 'helm-before-initialize-hook 'spacemacs//helm-before-initialize)
+
+      (defun spacemacs//helm-cleanup ()
+        "Cleanup some helm related states when quitting."
+        ;; deactivate any running transient map (micro-state)
+        (setq overriding-terminal-local-map nil))
+      (add-hook 'helm-cleanup-hook 'spacemacs//helm-cleanup)
+
+      (defface spacemacs-helm-navigation-ms-face
+        `((t :background ,(face-attribute 'error :foreground) :foreground "black"))
+        "Face for helm heder when helm micro-state is activated."
+        :group 'spacemacs))
+
     :config
     (progn
       (helm-mode +1)
-
       ;; alter helm-bookmark key bindings to be simpler
       (defun simpler-helm-bookmark-keybindings ()
         (define-key helm-bookmark-map (kbd "C-d") 'helm-bookmark-run-delete)
@@ -1148,10 +1389,78 @@ determine the state to enable when escaping from the insert state.")
         "Initialize helm-eshell."
         ;; this is buggy for now
         ;; (define-key eshell-mode-map (kbd "<tab>") 'helm-esh-pcomplete)
-        (evil-leader/set-key-for-mode 'eshell-mode "mh" 'spacemacs/helm-eshell-history))
+        (evil-leader/set-key-for-mode 'eshell-mode "mH" 'spacemacs/helm-eshell-history))
       (add-hook 'eshell-mode-hook 'spacemacs/init-helm-eshell)
       ;;shell
-      (evil-leader/set-key-for-mode 'shell-mode "mh" 'spacemacs/helm-shell-history)
+      (evil-leader/set-key-for-mode 'shell-mode "mH" 'spacemacs/helm-shell-history)
+
+      (defun spacemacs//helm-navigation-ms-on-enter ()
+        "Initialization of helm micro-state."
+        ;; faces
+        (spacemacs//helm-navigation-ms-set-face)
+        (setq spacemacs--helm-navigation-ms-face-cookie-minibuffer
+              (face-remap-add-relative
+               'minibuffer-prompt
+               'spacemacs-helm-navigation-ms-face))
+        ;; bind actions on numbers starting from 1 which executes action 0
+        (dotimes (n 10)
+          (define-key helm-map (number-to-string n)
+            `(lambda () (interactive) (helm-select-nth-action
+                                       ,(% (+ n 9) 10))))))
+
+      (defun spacemacs//helm-navigation-ms-set-face ()
+        "Set the face for helm header in helm navigation micro-state"
+        (with-helm-window
+          (setq spacemacs--helm-navigation-ms-face-cookie-header
+                (face-remap-add-relative
+                 'helm-header
+                 'spacemacs-helm-navigation-ms-face))))
+
+      (defun spacemacs//helm-navigation-ms-on-exit ()
+        "Action to perform when exiting helm micro-state."
+        ;; restore helm key map
+        (dotimes (n 10) (define-key helm-map (number-to-string n) nil))
+        ;; restore faces
+        (with-helm-window
+          (face-remap-remove-relative
+           spacemacs--helm-navigation-ms-face-cookie-header))
+        (face-remap-remove-relative
+         spacemacs--helm-navigation-ms-face-cookie-minibuffer))
+
+      (defun spacemacs//helm-navigation-ms-full-doc ()
+        "Full documentation for helm navigation micro-state."
+        "
+  [?]          display this help
+  [a]          toggle action selection page
+  [j] [k]      next/previous candidate
+  [h] [l]      previous/next source
+  [t]          toggle visible mark
+  [T]          toggle all mark
+  [v]          persistent action
+  [q]          quit")
+
+      (spacemacs|define-micro-state helm-navigation
+        :persistent t
+        :disable-evil-leader t
+        :define-key (helm-map . "C-SPC") (helm-map . "C-@")
+        :on-enter (spacemacs//helm-navigation-ms-on-enter)
+        :on-exit  (spacemacs//helm-navigation-ms-on-exit)
+        :bindings
+        ("C-SPC" nil :exit t)
+        ("C-@" nil :exit t)
+        ("<tab>" helm-select-action :exit t)
+        ("C-i" helm-select-action :exit t)
+        ("<RET>" helm-maybe-exit-minibuffer :exit t)
+        ("?" nil :doc (spacemacs//helm-navigation-ms-full-doc))
+        ("a" helm-select-action :post (spacemacs//helm-navigation-ms-set-face))
+        ("h" helm-previous-source)
+        ("j" helm-next-line)
+        ("k" helm-previous-line)
+        ("l" helm-next-source)
+        ("q" nil :exit t)
+        ("t" helm-toggle-visible-mark)
+        ("T" helm-toggle-all-marks)
+        ("v" helm-execute-persistent-action))
 
       (eval-after-load "helm-mode" ; required
         '(spacemacs|hide-lighter helm-mode)))))
@@ -1160,11 +1469,30 @@ determine the state to enable when escaping from the insert state.")
   (use-package helm-ag
     :defer t))
 
+(defun spacemacs/init-helm-c-yasnippet ()
+  (use-package helm-c-yasnippet
+    :defer t
+    :init
+    (progn
+      (defun spacemacs/helm-yas ()
+        "Properly lazy load helm-c-yasnipper."
+        (interactive)
+        (spacemacs/load-yasnippet)
+        (require 'helm-c-yasnippet)
+        (call-interactively 'helm-yas-complete))
+      (evil-leader/set-key "is" 'spacemacs/helm-yas)
+      (setq helm-c-yas-space-match-any-greedy t))))
+
 (defun spacemacs/init-helm-descbinds ()
   (use-package helm-descbinds
     :defer t
     :init
     (evil-leader/set-key "?" 'helm-descbinds)))
+
+(defun spacemacs/init-helm-flyspell ()
+  (use-package helm-flyspell
+    :commands helm-flyspell-correct
+    :init (evil-leader/set-key "Sc" 'helm-flyspell-correct)))
 
 (defun spacemacs/init-helm-make ()
   (use-package helm-make
@@ -1197,6 +1525,7 @@ determine the state to enable when escaping from the insert state.")
     :init
     (defconst spacemacs-use-helm-projectile t
       "This variable is only defined if helm-projectile is used.")
+    (setq projectile-switch-project-action 'helm-projectile)
     (evil-leader/set-key
       "/" 'helm-projectile-ag
       "pa" 'helm-projectile-ag
@@ -1220,13 +1549,42 @@ determine the state to enable when escaping from the insert state.")
     (evil-leader/set-key
       "sS"    'helm-multi-swoop
       "ss"    'helm-swoop
-      "s C-s" 'helm-multi-swoop-all)))
+      "s C-s" 'helm-multi-swoop-all)
+    (defadvice helm-swoop (before add-evil-jump activate)
+      (when (configuration-layer/package-declaredp 'evil-jumper)
+        (evil-set-jump)))))
 
 (defun spacemacs/init-helm-themes ()
   (use-package helm-themes
     :defer t
     :init
     (evil-leader/set-key "Th" 'helm-themes)))
+
+(defun spacemacs/init-hippie-exp ()
+  (global-set-key (kbd "M-/") 'hippie-expand) ;; replace dabbrev-expand
+  (setq hippie-expand-try-functions-list
+        '(
+          ;; Try to expand word "dynamically", searching the current buffer.
+          try-expand-dabbrev
+          ;; Try to expand word "dynamically", searching all other buffers.
+          try-expand-dabbrev-all-buffers
+          ;; Try to expand word "dynamically", searching the kill ring.
+          try-expand-dabbrev-from-kill
+          ;; Try to complete text as a file name, as many characters as unique.
+          try-complete-file-name-partially
+          ;; Try to complete text as a file name.
+          try-complete-file-name
+          ;; Try to expand word before point according to all abbrev tables.
+          try-expand-all-abbrevs
+          ;; Try to complete the current line to an entire line in the buffer.
+          try-expand-list
+          ;; Try to complete the current line to an entire line in the buffer.
+          try-expand-line
+          ;; Try to complete as an Emacs Lisp symbol, as many characters as
+          ;; unique.
+          try-complete-lisp-symbol-partially
+          ;; Try to complete word as an Emacs Lisp symbol.
+          try-complete-lisp-symbol)))
 
 (defun spacemacs/init-hl-anything ()
   (use-package hl-anything
@@ -1240,26 +1598,60 @@ determine the state to enable when escaping from the insert state.")
         "hgc" 'hl-unhighlight-all-global
         "hgh" 'hl-highlight-thingatpt-global
         "hh"  'hl-highlight-thingatpt-local
-        "hn"  'hl-find-thing-forwardly
-        "hN"  'hl-find-thing-backwardly
+        "hn"  'hl-find-next-thing
+        "hN"  'hl-find-prev-thing
         "hp"  'hl-paren-mode
         "hr"  'hl-restore-highlights
         "hs"  'hl-save-highlights))
     :config
     (progn
-      (spacemacs|diminish hl-paren-mode "(Ⓗ)")
+      (spacemacs|diminish hl-paren-mode " (Ⓗ)" " (H)")
       (spacemacs|hide-lighter hl-highlight-mode))))
+
+(defun spacemacs/init-hungry-delete ()
+  (use-package hungry-delete
+    :defer t
+    :init
+    (spacemacs|add-toggle hungry-delete
+                          :status hungry-delete-mode
+                          :on (hungry-delete-mode)
+                          :off (hungry-delete-mode -1)
+                          :documentation "Delete consecutive horizontal whitespace with a single key.
+Put (global-hungry-delete-mode) in dotspacemacs/config to enable by default."
+                          :evil-leader "td")
+    :config
+    (progn
+      (setq-default hungry-delete-chars-to-skip " \t\f\v") ; only horizontal whitespace
+      (define-key hungry-delete-mode-map (kbd "DEL") 'hungry-delete-backward)
+      (define-key hungry-delete-mode-map (kbd "S-DEL") 'delete-backward-char))))
 
 (defun spacemacs/init-ido-vertical-mode ()
   (use-package ido-vertical-mode
     :init
     (progn
       (ido-vertical-mode t)
-      (defun spacemacs//ido-vertical-define-keys ()
+
+      (defun spacemacs//ido-minibuffer-setup ()
+        "Setup the minibuffer."
+        ;; Since ido is implemented in a while loop where each
+        ;; iteration setup a whole new minibuffer, we have to keep
+        ;; track of any activated ido navigation micro-state and force
+        ;; the reactivation at each iteration.
+        (when spacemacs--ido-navigation-ms-enabled
+          (spacemacs/ido-navigation-micro-state)))
+      (add-hook 'ido-minibuffer-setup-hook 'spacemacs//ido-minibuffer-setup)
+
+      (defun spacemacs//ido-setup ()
+        (when face-remapping-alist
+          (setq face-remapping-alist nil))
+        ;; be sure to wipe any previous micro-state flag
+        (setq spacemacs--ido-navigation-ms-enabled nil)
         ;; overwrite the key bindings for ido vertical mode only
         (define-key ido-completion-map (kbd "C-d") 'ido-delete-file-at-head)
         (define-key ido-completion-map (kbd "C-k") 'ido-prev-match)
         (define-key ido-completion-map (kbd "C-<return>") 'ido-select-text)
+        ;; use M-RET in terminal
+        (define-key ido-completion-map "\M-\r" 'ido-select-text)
         (define-key ido-completion-map (kbd "C-h") 'ido-delete-backward-updir)
         (define-key ido-completion-map (kbd "C-j") 'ido-next-match)
         (define-key ido-completion-map (kbd "C-l") 'ido-exit-minibuffer)
@@ -1269,10 +1661,10 @@ determine the state to enable when escaping from the insert state.")
         (define-key ido-completion-map (kbd "C-n") 'next-history-element)
         (define-key ido-completion-map (kbd "C-p") 'previous-history-element)
         ;; ido-other window maps
-        (define-key ido-completion-map (kbd "C-x") 'ido-invoke-in-other-window)
-        (define-key ido-completion-map (kbd "C-v") 'ido-invoke-in-vertical-split)
-        (define-key ido-completion-map (kbd "C-b") 'ido-invoke-in-horizontal-split)
+        (define-key ido-completion-map (kbd "C-o") 'ido-invoke-in-other-window)
+        (define-key ido-completion-map (kbd "C-s") 'ido-invoke-in-vertical-split)
         (define-key ido-completion-map (kbd "C-t") 'ido-invoke-in-new-frame)
+        (define-key ido-completion-map (kbd "C-v") 'ido-invoke-in-horizontal-split)
         ;; more natural navigation keys: up, down to change current item
         ;; left to go up dir
         ;; right to open the selected item
@@ -1280,35 +1672,81 @@ determine the state to enable when escaping from the insert state.")
         (define-key ido-completion-map (kbd "<down>") 'ido-next-match)
         (define-key ido-completion-map (kbd "<left>") 'ido-delete-backward-updir)
         (define-key ido-completion-map (kbd "<right>") 'ido-exit-minibuffer)
-        (when dotspacemacs-feature-toggle-leader-on-jk
-          (evil-leader/set-key-for-mode 'ido-mode
-            "b" 'ido-invoke-in-horizontal-split
-            "t" 'ido-invoke-in-new-frame
-            "v" 'ido-invoke-in-vertical-split
-            "x" 'ido-invoke-in-other-window)
-          (key-chord-define ido-completion-map (kbd "jk")
-                            (cdr (assoc 'ido-mode evil-leader--mode-maps)))))
-      (add-to-list 'ido-setup-hook 'spacemacs//ido-vertical-define-keys))
-      ))
+        ;; initiate micro-state
+        (define-key ido-completion-map (kbd "C-SPC") 'spacemacs/ido-navigation-micro-state)
+        (define-key ido-completion-map (kbd "C-@") 'spacemacs/ido-navigation-micro-state)
+        )
+      (add-hook 'ido-setup-hook 'spacemacs//ido-setup)
+
+      (defvar spacemacs--ido-navigation-ms-enabled nil
+        "Flag which is non nil when ido navigation micro-state is enabled.")
+
+      (defface spacemacs-ido-navigation-ms-face
+        `((t :background ,(face-attribute 'error :foreground)
+             :foreground "black"
+             :weight bold))
+        "Face for ido minibuffer prompt when ido micro-state is activated."
+        :group 'spacemacs)
+
+      (defun spacemacs//ido-navigation-ms-set-face ()
+        "Set faces for ido navigation micro-state."
+        (push '(minibuffer-prompt . spacemacs-ido-navigation-ms-face)
+              face-remapping-alist))
+
+      (defun spacemacs//ido-navigation-ms-on-enter ()
+        "Initialization of ido micro-state."
+        (setq spacemacs--ido-navigation-ms-enabled t)
+        (spacemacs//ido-navigation-ms-set-face)
+        )
+      (defun spacemacs//ido-navigation-ms-on-exit ()
+        "Action to perform when exiting ido micro-state."
+        (setq face-remapping-alist nil))
+
+      (defun spacemacs//ido-navigation-ms-full-doc ()
+        "Full documentation for ido navigation micro-state."
+        "
+  [?]          display this help
+  [e]          enter dired
+  [j] [k]      next/previous match
+  [J] [K]      sub/parent directory
+  [h]          delete backward or parent directory
+  [l]          select match
+  [n] [p]      next/previous directory in history
+  [o]          open in other window
+  [s]          open in a new horizontal split
+  [t]          open in other frame
+  [v]          open in a new vertical split
+  [q]          quit")
+
+      (spacemacs|define-micro-state ido-navigation
+        :persistent t
+        :disable-evil-leader t
+        :on-enter (spacemacs//ido-navigation-ms-on-enter)
+        :on-exit  (spacemacs//ido-navigation-ms-on-exit)
+        :bindings
+        ("?" nil :doc (spacemacs//ido-navigation-ms-full-doc))
+        ("C-SPC" nil :exit t)
+        ("C-@" nil :exit t)
+        ("<RET>" ido-exit-minibuffer :exit t)
+        ("<escape>" nil :exit t)
+        ("e" ido-select-text :exit t)
+        ("h" ido-delete-backward-updir)
+        ("j" ido-next-match)
+        ("J" ido-next-match-dir)
+        ("k" ido-prev-match)
+        ("K" ido-prev-match-dir)
+        ("l" ido-exit-minibuffer :exit t)
+        ("n" ido-next-match-dir)
+        ("o" ido-invoke-in-other-window :exit t)
+        ("p" ido-prev-match-dir)
+        ("q" nil :exit t)
+        ("s" ido-invoke-in-vertical-split :exit t)
+        ("t" ido-invoke-in-new-frame :exit t)
+        ("v" ido-invoke-in-horizontal-split :exit t)))))
 
 (defun spacemacs/init-iedit ()
   (use-package iedit
     :defer t))
-
-(defun spacemacs/init-json-mode ()
-  (use-package json-mode
-    :defer t))
-
-(defun spacemacs/init-ledger-mode ()
-  (use-package ledger-mode
-    :mode ("\\.\\(ledger\\|ldg\\)\\'" . ledger-mode)
-    :defer t
-    :init
-    (progn
-      (setq ledger-post-amount-alignment-column 62)
-      (evil-leader/set-key-for-mode 'ledger-mode
-        "md" 'ledger-delete-current-transaction
-        "ma" 'ledger-add-transaction))))
 
 (defun spacemacs/init-leuven-theme ()
   (use-package leuven-theme
@@ -1326,23 +1764,6 @@ determine the state to enable when escaping from the insert state.")
       (setq linum-relative-current-symbol "")
       (linum-relative-toggle))))
 
-(defun spacemacs/init-markdown-mode ()
-  (use-package markdown-mode
-    :mode ("\\.md" . markdown-mode)
-    :defer t
-    :init
-    (eval-after-load 'smartparens
-      '(add-hook 'markdown-mode-hook 'smartparens-mode))
-    :config
-    ;; Don't do terrible things with Github code blocks (```)
-    (when (fboundp 'sp-local-pair)
-      (sp-local-pair 'markdown-mode "`" nil :actions '(:rem autoskip))
-      (sp-local-pair 'markdown-mode "'" nil :actions nil))))
-
-(defun spacemacs/init-markdown-toc ()
-  (use-package markdown-toc
-    :defer t))
-
 (defun spacemacs/init-move-text ()
   (use-package move-text
     :defer t
@@ -1358,8 +1779,6 @@ determine the state to enable when escaping from the insert state.")
     (evil-leader/set-key "ast" 'multi-term)
     :config
     (progn
-      (setq multi-term-program "/bin/zsh")
-
       (defun term-send-tab ()
         "Send tab in term mode."
         (interactive)
@@ -1370,32 +1789,96 @@ determine the state to enable when escaping from the insert state.")
 (defun spacemacs/init-neotree ()
   (use-package neotree
     :defer t
+    :commands neo-global--window-exists-p
     :init
     (progn
       (add-to-list 'evil-motion-state-modes 'neotree-mode)
-      (setq neo-create-file-auto-open t
-            neo-dont-be-alone t
-            neo-banner-message "File Tree browser"
+      (setq neo-window-width 32
+            neo-create-file-auto-open t
+            neo-banner-message nil
+            neo-show-updir-line nil
+            neo-mode-line-type 'neotree
             neo-smart-open t
-            neo-persist-show nil)
-      (evil-leader/set-key "ft" 'neotree-toggle)
-      (evil-leader/set-key "TAB" 'neotree-toggle))
+            neo-dont-be-alone t
+            neo-persist-show nil
+            neo-show-hidden-files t
+            neo-auto-indent-point t)
+
+      (defun spacemacs//init-neotree ()
+        "Initialize the neotree mode."
+        (if (fboundp 'global-vi-tilde-fringe-mode)
+            (vi-tilde-fringe-mode -1)))
+
+      (defun spacemacs/neotree-expand-or-open ()
+        "Collapse a neotree node."
+        (interactive)
+        (let ((node (neo-buffer--get-filename-current-line)))
+          (when node
+            (if (file-directory-p node)
+                (progn
+                  (neo-buffer--set-expand node t)
+                  (neo-buffer--refresh t)
+                  (when neo-auto-indent-point
+                    (next-line)
+                    (neo-point-auto-indent)))
+              (call-interactively 'neotree-enter)))))
+
+      (defun spacemacs/neotree-collapse ()
+        "Collapse a neotree node."
+        (interactive)
+        (let ((node (neo-buffer--get-filename-current-line)))
+          (when node
+            (when (file-directory-p node)
+              (neo-buffer--set-expand node nil)
+              (neo-buffer--refresh t))
+            (when neo-auto-indent-point
+              (neo-point-auto-indent)))))
+
+      (defun spacemacs/neotree-collapse-or-up ()
+        "Collapse an expanded directory node or go to the parent node."
+        (interactive)
+        (let ((node (neo-buffer--get-filename-current-line)))
+          (when node
+            (if (file-directory-p node)
+                (if (neo-buffer--expanded-node-p node)
+                    (spacemacs/neotree-collapse)
+                  (neotree-select-up-node))
+              (neotree-select-up-node)))))
+
+      (defun neotree-find-project-root ()
+        (interactive)
+        (if (neo-global--window-exists-p)
+            (neotree-hide)
+          (neotree-find (projectile-project-root))))
+
+      (defun spacemacs//neotree-key-bindings ()
+        "Set the key bindings for a neotree buffer."
+        (define-key evil-motion-state-local-map (kbd "TAB") 'neotree-stretch-toggle)
+        (define-key evil-motion-state-local-map (kbd "RET") 'neotree-enter)
+        (define-key evil-motion-state-local-map (kbd "|")   'neotree-enter-vertical-split)
+        (define-key evil-motion-state-local-map (kbd "-")   'neotree-enter-horizontal-split)
+        (define-key evil-motion-state-local-map (kbd "?")   'evil-search-backward)
+        (define-key evil-motion-state-local-map (kbd "c")   'neotree-create-node)
+        (define-key evil-motion-state-local-map (kbd "d")   'neotree-delete-node)
+        (define-key evil-motion-state-local-map (kbd "g")   'neotree-refresh)
+        (define-key evil-motion-state-local-map (kbd "h")   'spacemacs/neotree-collapse-or-up)
+        (define-key evil-motion-state-local-map (kbd "H")   'neotree-select-previous-sibling-node)
+        (define-key evil-motion-state-local-map (kbd "J")   'neotree-select-down-node)
+        (define-key evil-motion-state-local-map (kbd "K")   'neotree-select-up-node)
+        (define-key evil-motion-state-local-map (kbd "l")   'spacemacs/neotree-expand-or-open)
+        (define-key evil-motion-state-local-map (kbd "L")   'neotree-select-next-sibling-node)
+        (define-key evil-motion-state-local-map (kbd "q")   'neotree-hide)
+        (define-key evil-motion-state-local-map (kbd "r")   'neotree-rename-node)
+        (define-key evil-motion-state-local-map (kbd "R")   'neotree-change-root)
+        (define-key evil-motion-state-local-map (kbd "s")   'neotree-hidden-file-toggle))
+
+      (evil-leader/set-key
+        "ft" 'neotree-toggle
+        "pt" 'neotree-find-project-root))
+
     :config
-    (add-hook 'neotree-mode-hook
-              (lambda ()
-                (define-key evil-motion-state-local-map (kbd "TAB") 'neotree-enter)
-                (define-key evil-motion-state-local-map (kbd "RET") 'neotree-enter)
-                (define-key evil-motion-state-local-map (kbd "?") 'evil-search-backward)
-                (define-key evil-motion-state-local-map (kbd "a") 'neotree-stretch-toggle)
-                (define-key evil-motion-state-local-map (kbd "c") 'neotree-create-node)
-                (define-key evil-motion-state-local-map (kbd "d") 'neotree-delete-node)
-                (define-key evil-motion-state-local-map (kbd "g") 'neotree-refresh)
-                (define-key evil-motion-state-local-map (kbd "H") 'neotree-hidden-file-toggle)
-                (define-key evil-motion-state-local-map (kbd "K") 'kill-this-buffer)
-                (define-key evil-motion-state-local-map (kbd "q") 'neotree-hide)
-                (define-key evil-motion-state-local-map (kbd "r") 'neotree-rename-node)
-                ))
-    ))
+    (add-to-hook 'neotree-mode-hook '(spacemacs//init-neotree
+                                      spacemacs//neotree-key-bindings))))
 
 (defun spacemacs/init-org ()
   (use-package org
@@ -1427,21 +1910,17 @@ determine the state to enable when escaping from the insert state.")
     (progn
       (require 'org-install)
       (define-key global-map "\C-cl" 'org-store-link)
-      (define-key global-map "\C-ca" 'org-agenda)
-      (use-package org-bullets
-        :config
-        (defun spacemacs//org-mode-hook ()
-          (org-bullets-mode 1))
-        (add-hook 'org-mode-hook 'spacemacs//org-mode-hook))
-      ;; (use-package org-trello
-      ;;   :config
-      ;;   (add-hook 'org-mode-hook 'org-trello-mode))
-      ))
+      (define-key global-map "\C-ca" 'org-agenda)))
 
   (eval-after-load "org-agenda"
     '(progn
        (define-key org-agenda-mode-map "j" 'org-agenda-next-line)
        (define-key org-agenda-mode-map "k" 'org-agenda-previous-line))))
+
+(defun spacemacs/init-org-bullets ()
+  (use-package org-bullets
+    :defer t
+    :init (add-hook 'org-mode-hook 'org-bullets-mode)))
 
 (defun spacemacs/init-page-break-lines ()
   (use-package page-break-lines
@@ -1451,7 +1930,7 @@ determine the state to enable when escaping from the insert state.")
 
 (defun spacemacs/init-paradox ()
   (use-package paradox
-    :defer t
+    :commands paradox-list-packages
     :init
     (progn
 
@@ -1484,6 +1963,7 @@ determine the state to enable when escaping from the insert state.")
       (evil-leader/set-key
         "aP" 'spacemacs/paradox-list-packages))
     :config
+    (setq paradox-execute-asynchronously nil)
     (spacemacs/activate-evil-leader-for-map 'paradox-menu-mode-map)
     ))
 
@@ -1514,38 +1994,44 @@ determine the state to enable when escaping from the insert state.")
   (use-package powerline
     :init
     (progn
-      (use-package window-numbering
-        :ensure window-numbering
-        :init
-        (progn
-          (evil-leader/set-key
-            "0" 'select-window-0
-            "1" 'select-window-1
-            "2" 'select-window-2
-            "3" 'select-window-3
-            "4" 'select-window-4
-            "5" 'select-window-5
-            "6" 'select-window-6
-            "7" 'select-window-7
-            "8" 'select-window-8
-            "9" 'select-window-9)
-          (window-numbering-mode 1)))
+      ;; Custom format of minor mode lighters, they are separated by a pipe.
+      (defpowerline spacemacs-powerline-minor-modes
+        (mapconcat (lambda (mm)
+                     (propertize
+                      mm
+                      'mouse-face 'mode-line-highlight
+                      'help-echo "Minor mode\n mouse-1: Display minor mode menu\n mouse-2: Show help for minor mode\n mouse-3: Toggle minor modes"
+                      'local-map (let ((map (make-sparse-keymap)))
+                                   (define-key map
+                                     [mode-line down-mouse-1]
+                                     (powerline-mouse 'minor 'menu mm))
+                                   (define-key map
+                                     [mode-line mouse-2]
+                                     (powerline-mouse 'minor 'help mm))
+                                   (define-key map
+                                     [mode-line down-mouse-3]
+                                     (powerline-mouse 'minor 'menu mm))
+                                   (define-key map
+                                     [header-line down-mouse-3]
+                                     (powerline-mouse 'minor 'menu mm))
+                                   map)))
+                   (split-string (format-mode-line minor-mode-alist))
+                   (concat (propertize
+                            (if dotspacemacs-mode-line-unicode-symbols " " "") 'face face)
+                           (unless dotspacemacs-mode-line-unicode-symbols "|"))))
 
-      (defun spacemacs/window-number ()
-        "Return the number of the window."
-        (let ((num (window-numbering-get-number-string)))
-          (cond ((not (display-graphic-p)) (concat "(" num ")"))
-                ((equal num "1")  " ➊ ")
-                ((equal num "2")  " ➋ ")
-                ((equal num "3")  " ➌ ")
-                ((equal num "4")  " ➍ ")
-                ((equal num "5")  " ➎ ")
-                ((equal num "6")  " ❻ ")
-                ((equal num "7")  " ➐ ")
-                ((equal num "8")  " ➑ ")
-                ((equal num "9")  " ➒ ")
-                ((equal num "0")  " ➓ ")
-                (t (concat " (" num ") ")))))
+      (defpowerline spacemacs-powerline-new-version
+        (propertize
+         spacemacs-version-check-lighter
+         'mouse-face 'mode-line-highlight
+         'help-echo (format "New version %s | Click with mouse-1 to update (Not Yet Implemented)"
+                            spacemacs-new-version)
+         'local-map (let ((map (make-sparse-keymap)))
+                      (define-key map
+                        [mode-line down-mouse-1]
+                        (lambda (event) (interactive "@e") (message "TODO: update"))
+                        )
+                      map)))
 
       (defvar spacemacs-mode-line-minor-modesp t
         "If not nil, minor modes lighter are displayed in the mode-line.")
@@ -1557,121 +2043,231 @@ determine the state to enable when escaping from the insert state.")
           (setq spacemacs-mode-line-minor-modesp t)))
       (evil-leader/set-key "tmm" 'spacemacs/mode-line-minor-modes-toggle)
 
-      ;; for now we hardcode the height value of powerline depending on the
-      ;; window system, a better solution would be to compute it correctly
-      ;; in powerline package.
-      (let ((height (if (eq 'w32 window-system) 18 17)))
-        (setq-default powerline-height height))
-      (setq-default powerline-default-separator 'wave)
+      (defvar spacemacs-mode-line-new-version-lighterp t
+        "If not nil, new version lighter is displayed in the mode-line.")
+      (defun spacemacs/mode-line-new-version-lighter-toggle ()
+        "Toggle display of new version lighter."
+        (interactive)
+        (if spacemacs-mode-line-new-version-lighterp
+            (setq spacemacs-mode-line-new-version-lighterp nil)
+          (setq spacemacs-mode-line-new-version-lighterp t)))
+      (evil-leader/set-key "tmv" 'spacemacs/mode-line-new-version-lighter-toggle)
 
-      (setq-default mode-line-format '("%e" (:eval
-          (let* ((active (powerline-selected-window-active))
-                 (line-face (if active 'mode-line 'mode-line-inactive))
-                 (face1 (if active 'powerline-active1 'powerline-inactive1))
-                 (face2 (if active 'powerline-active2 'powerline-inactive2))
-                 (state-face (if active (spacemacs/current-state-face) face2))
-                 (batteryp (and (boundp 'fancy-battery-mode)
-                                (symbol-value fancy-battery-mode)))
-                 (battery-face (if batteryp (fancy-battery-powerline-face)))
-                 (flycheckp (and (boundp 'flycheck-mode)
-                                 (symbol-value flycheck-mode)
-                                 (or flycheck-current-errors
-                                     (eq 'running flycheck-last-status-change))))
-                 (vc-face (if (or flycheckp spacemacs-mode-line-minor-modesp)
-                               face1 line-face))
-                 (separator-left (intern (format "powerline-%s-%s"
-                                                 powerline-default-separator
-                                                 (car powerline-default-separator-dir))))
-                 (separator-right (intern (format "powerline-%s-%s"
-                                                  powerline-default-separator
-                                                  (cdr powerline-default-separator-dir))))
-                 (lhs (append
-                       (list
-                        ;; window number
-                        ;; (funcall separator-left state-face face1)
-                        (powerline-raw (spacemacs/window-number) state-face))
-                       (if (and active anzu--state)
-                           (list
-                            (funcall separator-right state-face face1)
-                            (powerline-raw (anzu--update-mode-line) face1)
-                            (funcall separator-right face1 line-face))
-                         (list (funcall separator-right state-face line-face)))
-                       ;; evil state
-                       ;; (powerline-raw evil-mode-line-tag state-face)
-                       ;; (funcall separator-right state-face line-face)
-                       ;; buffer name
-                       (list
-                        (powerline-raw "%*" line-face 'l)
-                        (powerline-buffer-size line-face 'l)
-                        (powerline-buffer-id line-face 'l)
-                        (powerline-raw " " line-face)
-                        ;; major mode
-                        (funcall separator-left line-face face1)
-                        (powerline-major-mode face1 'l)
-                        (powerline-raw " " face1)
-                        (if active (funcall separator-right face1 line-face)))
-                       ;; flycheck
-                       (if (and active flycheckp)
-                           (list
-                            (powerline-raw " " line-face)
-                            (powerline-raw (spacemacs|custom-flycheck-lighter error)
-                                           'spacemacs-mode-line-flycheck-error-face)
-                            (powerline-raw (spacemacs|custom-flycheck-lighter warning)
-                                           'spacemacs-mode-line-flycheck-warning-face)
-                            (powerline-raw (spacemacs|custom-flycheck-lighter info)
-                                           'spacemacs-mode-line-flycheck-info-face)
-                            ))
-                       ;; separator between flycheck and minor modes
-                       (if (and active flycheckp spacemacs-mode-line-minor-modesp)
-                           (list
-                            (funcall separator-left line-face face1)
-                            (powerline-raw "  " face1)
-                            (funcall separator-right face1 line-face)))
-                       ;; minor modes
-                       (if (and active spacemacs-mode-line-minor-modesp)
-                           (list
-                            (powerline-minor-modes line-face 'l)
-                            (powerline-raw mode-line-process line-face 'l)
-                            (powerline-raw " " line-face)))
-                       ;; version control
-                       (if (and active (or flycheckp spacemacs-mode-line-minor-modesp))
-                           (list (funcall separator-left (if vc-face line-face face1) vc-face)))
-                       (if active (list (powerline-vc vc-face)
-                                        (powerline-raw " " vc-face)
-                                        (funcall separator-right vc-face face2))
-                         (list (funcall separator-right face1 face2)))))
-                 (rhs (append
-                       ;; battery
-                       (if (and active batteryp)
-                           (list (funcall separator-left face2 battery-face)
-                                 (powerline-raw (fancy-battery-default-mode-line)
-                                                battery-face 'r)
-                                 (funcall separator-right battery-face face1))
-                         (list (funcall separator-right face2 face1)))
-                       (list
-                        ;; row:column
-                        (powerline-raw " " face1)
-                        (powerline-raw "%l:%2c" face1 'r)
-                        (funcall separator-left face1 line-face)
-                        (powerline-raw " " line-face))
+      (defvar spacemacs-mode-line-display-point-p nil
+        "If not nil, display point alongside row/column in the mode-line.")
+      (defun spacemacs/mode-line-display-point-toggle ()
+        (interactive)
+        (if spacemacs-mode-line-display-point-p
+            (setq spacemacs-mode-line-display-point-p nil)
+          (setq spacemacs-mode-line-display-point-p t)))
+      (evil-leader/set-key "tmp" 'spacemacs/mode-line-display-point-toggle)
 
-                       (list
-                        (powerline-raw global-mode-string)
-                        (powerline-raw " " line-face))
+      (defvar spacemacs-mode-line-org-clock-current-taskp nil
+        "If not nil, the currently clocked org-mode task will be
+displayed in the mode-line.")
+      (defvar spacemacs-mode-line-org-clock-format-function
+        'org-clock-get-clock-string
+        "Function used to render the currently clocked org-mode task.")
+      (defun spacemacs/mode-line-org-clock-current-task-toggle ()
+        (interactive)
+        (if spacemacs-mode-line-org-clock-current-taskp
+            (setq spacemacs-mode-line-org-clock-current-taskp nil)
+          (setq spacemacs-mode-line-org-clock-current-taskp t)))
+      (evil-leader/set-key "tmc" 'spacemacs/mode-line-org-clock-current-task-toggle)
 
-                       (list
-                        ;; percentage in the file
-                        (powerline-raw "%p" line-face 'r)
-                        (when active
-                          ;; display hud only if necessary
-                          (powerline-chamfer-left line-face face1)
-                          (let ((progress (format-mode-line "%p")))
-                            (if (string-match "\%" progress)
-                                (powerline-hud state-face face1))))))))
-            (concat (powerline-render lhs)
-                    (powerline-fill face2 (powerline-width rhs))
-                    (powerline-render rhs))))))
-      )))
+      (if (display-graphic-p)
+          (setq-default powerline-default-separator 'wave)
+        (setq-default powerline-default-separator 'utf-8))
+
+      (defun spacemacs/mode-line-prepare-left ()
+        (let* ((active (powerline-selected-window-active))
+               (line-face (if active 'mode-line 'mode-line-inactive))
+               (face1 (if active 'powerline-active1 'powerline-inactive1))
+               (face2 (if active 'powerline-active2 'powerline-inactive2))
+               (state-face (if active (spacemacs/current-state-face) face2))
+               (window-numberingp (and (boundp 'window-numbering-mode)
+                                       (symbol-value window-numbering-mode)))
+               (anzup (and (boundp 'anzu--state) anzu--state))
+               (flycheckp (and (boundp 'flycheck-mode)
+                               (symbol-value flycheck-mode)
+                               (or flycheck-current-errors
+                                   (eq 'running flycheck-last-status-change))))
+               (vc-face (if (or flycheckp spacemacs-mode-line-minor-modesp)
+                            face1 line-face))
+               (separator-left (intern (format "powerline-%s-%s"
+                                               powerline-default-separator
+                                               (car powerline-default-separator-dir))))
+               (separator-right (intern (format "powerline-%s-%s"
+                                                powerline-default-separator
+                                                (cdr powerline-default-separator-dir)))))
+          (append
+           ;; window number
+           (if (and window-numberingp (spacemacs/window-number))
+               (list (powerline-raw (spacemacs/window-number) state-face))
+             (list (powerline-raw (evil-state-property evil-state :tag t) state-face)))
+           (if (and active anzup)
+               (list (funcall separator-right state-face face1)
+                     (powerline-raw (anzu--update-mode-line) face1)
+                     (funcall separator-right face1 line-face))
+             (list (funcall separator-right state-face line-face)))
+           ;; evil state
+           ;; (powerline-raw evil-mode-line-tag state-face)
+           ;; (funcall separator-right state-face line-face)
+           ;; buffer name
+           (list
+            (powerline-raw "%*" line-face 'l)
+            (powerline-buffer-size line-face 'l)
+            (powerline-buffer-id line-face 'l)
+            (powerline-raw " " line-face)
+            ;; major mode
+            (funcall separator-left line-face face1)
+            (powerline-major-mode face1 'l)
+            (powerline-raw " " face1)
+            (when active
+              (funcall separator-right face1 line-face)))
+           ;; flycheck
+           (when (and active flycheckp)
+               (list (powerline-raw " " line-face)
+                     (powerline-raw (spacemacs|custom-flycheck-lighter error)
+                                    'spacemacs-mode-line-flycheck-error-face)
+                     (powerline-raw (spacemacs|custom-flycheck-lighter warning)
+                                    'spacemacs-mode-line-flycheck-warning-face)
+                     (powerline-raw (spacemacs|custom-flycheck-lighter info)
+                                    'spacemacs-mode-line-flycheck-info-face)))
+           ;; separator between flycheck and minor modes
+           (when (and active flycheckp spacemacs-mode-line-minor-modesp)
+             (list (funcall separator-left line-face face1)
+                   (powerline-raw "  " face1)
+                   (funcall separator-right face1 line-face)))
+           ;; minor modes
+           (when (and active spacemacs-mode-line-minor-modesp)
+             (list (spacemacs-powerline-minor-modes line-face 'l)
+                   (powerline-raw mode-line-process line-face 'l)
+                   (powerline-raw " " line-face)))
+           ;; version control
+           (when (and active (or flycheckp spacemacs-mode-line-minor-modesp))
+             (list (funcall separator-left (if vc-face line-face face1) vc-face)))
+           (if active
+               (list (powerline-vc vc-face)
+                     (powerline-raw " " vc-face)
+                     (funcall separator-right vc-face face2))
+             (list (funcall separator-right face1 face2)))
+           ;; org clocked task
+           (when (and active
+                      spacemacs-mode-line-org-clock-current-taskp
+                      (fboundp 'org-clocking-p)
+                      (org-clocking-p))
+             (list (powerline-raw " " face2)
+                   (funcall spacemacs-mode-line-org-clock-format-function)
+                   (powerline-raw " " face2))))))
+
+      (defun column-number-at-pos (pos)
+        "Analog to line-number-at-pos."
+        (save-excursion (goto-char pos) (current-column)))
+
+      (defun selection-info ()
+        "String holding the number of columns in the selection
+         if it covers only one line, else number of lines in the selection"
+        (let* ((lines (count-lines (region-beginning) (1+ (region-end))))
+               (chars (- (1+ (region-end)) (region-beginning))))
+          (if (> lines 1) (format "%s lines" (number-to-string lines))
+            (format "%s chars" (number-to-string chars)))))
+
+      (defun spacemacs/mode-line-prepare-right ()
+        (let* ((active (powerline-selected-window-active))
+               (line-face (if active 'mode-line 'mode-line-inactive))
+               (face1 (if active 'powerline-active1 'powerline-inactive1))
+               (face2 (if active 'powerline-active2 'powerline-inactive2))
+               (state-face (if active (spacemacs/current-state-face) face2))
+               (nyancatp (and (boundp 'nyan-mode) nyan-mode))
+               (batteryp (and (boundp 'fancy-battery-mode)
+                              (symbol-value fancy-battery-mode)))
+               (battery-face (if batteryp (fancy-battery-powerline-face)))
+               (separator-left (intern (format "powerline-%s-%s"
+                                               powerline-default-separator
+                                               (car powerline-default-separator-dir))))
+               (separator-right (intern (format "powerline-%s-%s"
+                                                powerline-default-separator
+                                                (cdr powerline-default-separator-dir)))))
+          (append
+           ;; battery
+           (if (and active batteryp)
+               (list (funcall separator-left face2 battery-face)
+                     (powerline-raw (fancy-battery-default-mode-line)
+                                    battery-face 'r)
+                     (funcall separator-right battery-face face1))
+             (list (funcall separator-right face2 face1)))
+           (if (use-region-p)
+               ;; selection info, if there is a selection.
+               (list
+                (powerline-raw " " face1)
+                (powerline-raw (selection-info) face1)
+                (powerline-raw " " face1)
+                (funcall separator-left face1 face2)
+                (powerline-raw " " face2)
+                (funcall separator-right face2 face1)))
+           (list
+            ;; row:column
+            (powerline-raw " " face1)
+            (powerline-raw (if spacemacs-mode-line-display-point-p
+                               (concat (format "%d | " (point)) "%l:%2c" )
+                             "%l:%2c")
+                           face1 'r)
+            (funcall separator-left face1 line-face)
+            (powerline-raw " " line-face))
+           (list
+            ;; global-mode
+            (unless (equal '("") global-mode-string)
+              (powerline-raw global-mode-string)
+              (powerline-raw " " line-face))
+            ;; new version
+            (if (and active
+                     spacemacs-new-version
+                     spacemacs-mode-line-new-version-lighterp)
+                (spacemacs-powerline-new-version
+                 (spacemacs/get-new-version-lighter-face
+                  spacemacs-version spacemacs-new-version) 'r)))
+           (when (and active (not nyancatp))
+             (let ((progress (format-mode-line "%p")))
+               (list
+                ;; percentage in the file
+                (powerline-raw "%p" line-face 'r)
+                ;; display hud
+                (powerline-chamfer-left line-face face1)
+                (if (string-match "\%" progress)
+                    (powerline-hud state-face face1))))))))
+
+      (defun spacemacs/mode-line-prepare ()
+        (let* ((active (powerline-selected-window-active))
+               (face2 (if active 'powerline-active2 'powerline-inactive2))
+               (lhs (spacemacs/mode-line-prepare-left))
+               (rhs (spacemacs/mode-line-prepare-right))
+               (nyancatp (and (boundp 'nyan-mode) nyan-mode)))
+          (concat (powerline-render lhs)
+                  (when (and active nyancatp)
+                    (powerline-render (spacemacs/powerline-nyan-cat)))
+                  (powerline-fill face2 (powerline-width rhs))
+                  (powerline-render rhs))))
+
+      (setq-default mode-line-format
+                    '("%e" (:eval (spacemacs/mode-line-prepare))))
+
+      (defun spacemacs//restore-powerline (buffer)
+        "Restore the powerline in buffer"
+        (with-current-buffer buffer
+              (setq-local mode-line-format
+                          '("%e" (:eval (spacemacs/mode-line-prepare))))
+              (powerline-set-selected-window)
+              (powerline-reset)))
+
+      (defun spacemacs//set-powerline-for-startup-buffers ()
+        "Set the powerline for buffers created when Emacs starts."
+        (unless configuration-layer-error-count
+          (dolist (buffer '("*Messages*" "*spacemacs*" "*Compile-Log*"))
+            (when (get-buffer buffer)
+              (spacemacs//restore-powerline buffer)))))
+      (add-hook 'after-init-hook
+                'spacemacs//set-powerline-for-startup-buffers))))
 
 (defun spacemacs/init-projectile ()
   (use-package projectile
@@ -1691,15 +2287,18 @@ determine the state to enable when escaping from the insert state.")
                projectile-find-tag
                projectile-kill-buffers
                projectile-recentf
-               projectile-invalidate-cache)
+               projectile-invalidate-cache
+               projectile-project-root
+               )
     :init
     (progn
       (setq-default projectile-enable-caching t)
+      (setq projectile-sort-order 'recentf)
       (setq projectile-cache-file (concat spacemacs-cache-directory
                                           "projectile.cache"))
       (setq projectile-known-projects-file (concat spacemacs-cache-directory
                                                    "projectile-bookmarks.eld"))
-      (unless (boundp spacemacs-use-helm-projectile)
+      (unless (boundp 'spacemacs-use-helm-projectile)
         (evil-leader/set-key
           "pa" 'projectile-ack
           "pA" 'projectile-ag
@@ -1711,70 +2310,29 @@ determine the state to enable when escaping from the insert state.")
           "ph" 'helm-projectile
           "ps" 'projectile-switch-project))
       (evil-leader/set-key
+        "p!" 'projectile-run-shell-command-in-root
+        "p&" 'projectile-run-async-shell-command-in-root
+        "pc" 'projectile-compile-project
         "pD" 'projectile-dired
         "pI" 'projectile-invalidate-cache
         "pk" 'projectile-kill-buffers
         "po" 'projectile-multi-occur
         "pr" 'projectile-replace
         "pR" 'projectile-regenerate-tags
-        "pt" 'projectile-find-tag
+        "py" 'projectile-find-tag
         "pT" 'projectile-find-test-file))
-      :config
-      (progn
-        (projectile-global-mode)
-        (spacemacs|hide-lighter projectile-mode))))
-
-(defun spacemacs/init-rainbow-blocks ()
-  (use-package rainbow-blocks
-    :disabled t
-    :init
-    (progn (add-hook 'emacs-lisp-mode-hook 'rainbow-blocks-mode))))
+    :config
+    (progn
+      (projectile-global-mode)
+      (spacemacs|hide-lighter projectile-mode))))
 
 (defun spacemacs/init-rainbow-delimiters ()
   (use-package rainbow-delimiters
     :defer t
     :init
     (progn
-      (defun turn-on-rainbow-delimiters-mode ()
-        (interactive)
-        (rainbow-delimiters-mode 1))
-      (add-to-hooks
-       'turn-on-rainbow-delimiters-mode '(prog-mode-hook)))))
-
-(defun spacemacs/init-rainbow-mode ()
-  (use-package rainbow-mode
-    :defer t
-    :init (evil-leader/set-key "tc" 'rainbow-mode)
-    :config
-    (spacemacs|hide-lighter rainbow-mode)))
-
-(defun spacemacs/init-rcirc ()
-  (use-package rcirc
-    :commands irc
-    :init
-    (progn
-      (add-to-hook 'rcirc-mode-hook '(rcirc-track-minor-mode
-                                      rcirc-omit-mode
-                                      ;; rcirc-reconnect-mode
-                                      flyspell-mode))
-      (setq evil-normal-state-modes
-            (cons 'rcirc-mode evil-normal-state-modes)))
-    :config
-    (progn
-      (setq rcirc-fill-column 80
-            rcirc-buffer-maximum-lines 2048
-            rcirc-omit-responses '("JOIN" "PART" "QUIT" "NICK" "AWAY")
-            rcirc-omit-threshold 20)
-      (require 'rcirc-color)
-      (let ((dir (config-system/get-layer-property 'spacemacs :ext-dir)))
-        (require 'rcirc-reconnect
-                 (concat dir "rcirc-reconnect/rcirc-reconnect.el")))
-      ;; identify info are stored in a separate location, skip errors
-      ;; if the feature cannot be found.
-      (require 'pinit-rcirc nil 'noerror)
-      (define-key rcirc-mode-map (kbd "C-j") 'rcirc-insert-prev-input)
-      (define-key rcirc-mode-map (kbd "C-k") 'rcirc-insert-next-input)
-      )))
+      (evil-leader/set-key "tCd" 'rainbow-delimiters-mode)
+      (add-to-hooks 'rainbow-delimiters-mode '(prog-mode-hook)))))
 
 (defun spacemacs/init-recentf ()
   (use-package recentf
@@ -1796,12 +2354,6 @@ determine the state to enable when escaping from the insert state.")
 (defun spacemacs/init-rfringe ()
   (use-package rfringe
     :defer t))
-
-(defun spacemacs/init-ruby-mode ()
-  (use-package ruby-mode
-    :defer t
-    :mode (("\\(rake\\|thor\\|guard\\|gem\\|cap\\|vagrant\\)file\\'" . ruby-mode)
-           ("\\.\\(rb\\|ru\\|builder\\|rake\\|thor\\|gemspec\\)\\'" . ruby-mode))))
 
 (defun spacemacs/init-shell ()
   (defun shell-comint-input-sender-hook ()
@@ -1842,7 +2394,9 @@ determine the state to enable when escaping from the insert state.")
     :config
     (progn
       (require 'smartparens-config)
-      (spacemacs|diminish smartparens-mode " (Ⓢ)")
+      (setq sp-cancel-autoskip-on-backward-movement nil)
+      (spacemacs|diminish smartparens-mode " (Ⓢ)" " (S)")
+
       (defun spacemacs/smartparens-pair-newline (id action context)
         (save-excursion
           (newline)
@@ -1862,7 +2416,7 @@ determine the state to enable when escaping from the insert state.")
   ;; this is not a conventional package
   ;; no require are needed for this package everything is auto-loaded
   (if dotspacemacs-smooth-scrolling
-      (setq scroll-margin 5
+      (setq smooth-scroll-margin 5
             scroll-conservatively 9999
             scroll-step 1)
     ;; deactivate the defadvice's
@@ -1902,6 +2456,7 @@ determine the state to enable when escaping from the insert state.")
 
 (defun spacemacs/init-vi-tilde-fringe ()
   (use-package vi-tilde-fringe
+    :if window-system
     :init
     (global-vi-tilde-fringe-mode)
     :config
@@ -1919,7 +2474,7 @@ determine the state to enable when escaping from the insert state.")
 
 (defun spacemacs/init-volatile-highlights ()
   (use-package volatile-highlights
-    :init
+    :config
     (progn
       (volatile-highlights-mode t)
       (spacemacs|hide-lighter volatile-highlights-mode))))
@@ -1938,7 +2493,75 @@ determine the state to enable when escaping from the insert state.")
 (defun spacemacs/init-whitespace ()
   (use-package whitespace
     :defer t
-    :config (spacemacs|diminish whitespace-mode " Ⓦ")))
+    :config (spacemacs|diminish whitespace-mode " Ⓦ" " W")))
+
+(defun spacemacs/init-window-numbering ()
+  (use-package window-numbering
+    ;; not deferred on puprose
+    :init (require 'window-numbering)
+    :config
+    (progn
+      (when (configuration-layer/package-declaredp 'powerline)
+        (defun window-numbering-install-mode-line (&optional position)
+          "Do nothing, the display is handled by the powerline."))
+      (setq window-numbering-auto-assign-0-to-minibuffer nil)
+      (evil-leader/set-key
+        "0" 'select-window-0
+        "1" 'select-window-1
+        "2" 'select-window-2
+        "3" 'select-window-3
+        "4" 'select-window-4
+        "5" 'select-window-5
+        "6" 'select-window-6
+        "7" 'select-window-7
+        "8" 'select-window-8
+        "9" 'select-window-9)
+      (window-numbering-mode 1))
+
+    (defun spacemacs/window-number ()
+      "Return the number of the window."
+      (let* ((num (window-numbering-get-number))
+             (str (if num (int-to-string num))))
+        (cond
+         ((not dotspacemacs-mode-line-unicode-symbols) (concat " " str " "))
+         ((equal str "1")  " ➊ ")
+         ((equal str "2")  " ➋ ")
+         ((equal str "3")  " ➌ ")
+         ((equal str "4")  " ➍ ")
+         ((equal str "5")  " ➎ ")
+         ((equal str "6")  " ❻ ")
+         ((equal str "7")  " ➐ ")
+         ((equal str "8")  " ➑ ")
+         ((equal str "9")  " ➒ ")
+         ((equal str "0")  " ➓ "))))
+
+    (defun spacemacs//window-numbering-assign (windows)
+      "Custom number assignment for special buffers."
+      (mapc (lambda (w)
+              (when (and (boundp 'neo-global--window)
+                         (eq w neo-global--window))
+                (window-numbering-assign w 0)))
+            windows))
+    (add-hook 'window-numbering-before-hook 'spacemacs//window-numbering-assign)))
+
+(defun spacemacs/init-winner ()
+  (use-package winner
+    :init
+    (progn
+      (setq spacemacs/winner-boring-buffers '("*Completions*"
+                                              "*Compile-Log*"
+                                              "*inferior-lisp*"
+                                              "*Fuzzy Completions*"
+                                              "*Apropos*"
+                                              "*Help*"
+                                              "*cvs*"
+                                              "*Buffer List*"
+                                              "*Ibuffer*"
+                                              "*esh command on file*"
+                                              ))
+      (setq winner-boring-buffers
+            (append winner-boring-buffers spacemacs/winner-boring-buffers))
+      (winner-mode t))))
 
 (defun spacemacs/init-yasnippet ()
   (use-package yasnippet
@@ -1948,74 +2571,28 @@ determine the state to enable when escaping from the insert state.")
       (defun spacemacs/load-yasnippet ()
           (if (not (boundp 'yas-minor-mode))
               (progn
-                (let* ((dir (config-system/get-layer-property 'spacemacs :ext-dir))
-                       (yas-dir (list (concat dir "yasnippet-snippets"))))
-                  (setq yas-snippet-dirs yas-dir)
+                (let* ((dir (configuration-layer/get-layer-property 'spacemacs :ext-dir))
+                       (private-yas-dir (concat configuration-layer-private-directory "snippets"))
+                       (yas-dir (concat dir "yasnippet-snippets")))
+                  (setq yas-snippet-dirs
+                        (append (when (boundp 'yas-snippet-dirs)
+                                  yas-snippet-dirs)
+                                (list  private-yas-dir yas-dir)))
                   (yas-global-mode 1)))))
       (add-to-hooks 'spacemacs/load-yasnippet '(prog-mode-hook
-                                                org-mode-hook)))
+                                                markdown-mode-hook
+                                                org-mode-hook))
+
+      (defun spacemacs/force-yasnippet-off ()
+        (yas-minor-mode -1)
+        (setq yas-dont-activate t))
+
+      (add-to-hooks 'spacemacs/force-yasnippet-off '(term-mode-hook
+                                                     shell-mode-hook)))
     :config
     (progn
-      (spacemacs|diminish yas-minor-mode " Ⓨ")
-      (require 'helm-c-yasnippet)
-      (evil-leader/set-key "is" 'helm-yas-complete)
-      (setq helm-c-yas-space-match-any-greedy t))))
+      (spacemacs|diminish yas-minor-mode " Ⓨ" " Y"))))
 
 (defun spacemacs/init-zenburn-theme ()
   (use-package zenburn-theme
     :defer t))
-
-(defun spacemacs/init-zoom-frm ()
-  (use-package zoom-frm
-    :defer t
-    :init
-    (progn
-      (defun spacemacs/zoom-frame-overlay-map ()
-        "Set a temporary overlay map to easily change the font size."
-        (set-temporary-overlay-map
-         (let ((map (make-sparse-keymap)))
-           (define-key map (kbd "+") 'spacemacs/zoom-in-frame)
-           (define-key map (kbd "-") 'spacemacs/zoom-out-frame)
-           (define-key map (kbd "=") 'spacemacs/reset-zoom)
-           map) t))
-
-      (defun spacemacs/zoom-frame-micro-state-doc ()
-        "Display a short documentation in the mini buffer."
-        (echo "Zoom Frame micro-state
-  + to zoom frame in
-  - to zoom frame out
-  = to reset zoom
-Press any other key to exit."))
-
-      (defun spacemacs/zoom-in-frame ()
-        "Zoom in frame."
-        (interactive)
-        (spacemacs/zoom-in-or-out 1))
-
-      (defun spacemacs/zoom-out-frame ()
-        "Zoom out frame."
-        (interactive)
-        (spacemacs/zoom-in-or-out -1))
-
-      (defun spacemacs/reset-zoom ()
-        "Reset the zoom."
-        (interactive)
-        (spacemacs/zoom-in-or-out 0))
-
-      (defun spacemacs/zoom-in-or-out (direction)
-        "Zoom the buffer in/out. If DIRECTION is positive or zero the frame text is enlarged,
-otherwise it is reduced."
-        (interactive)
-        (if (eq direction 0)
-            (zoom-frm-unzoom)
-          (if (< direction 0)
-              (zoom-frm-out)
-            (zoom-frm-in)))
-        (spacemacs/zoom-frame-overlay-map)
-        (spacemacs/zoom-frame-micro-state-doc))
-      (evil-leader/set-key
-        "zf+"  'spacemacs/zoom-in-frame
-        "zf-"  'spacemacs/zoom-out-frame
-        "zf="  'spacemacs/reset-zoom)
-      )
-    ))
